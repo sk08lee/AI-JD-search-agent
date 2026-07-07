@@ -1,0 +1,22 @@
+{
+  "llm": {
+    "apiKey": "",
+    "baseUrl": "",
+    "model": "openai/gpt-4o-mini"
+  },
+  "embedding": {
+    "apiKey": "",
+    "baseUrl": "",
+    "model": "BAAI/bge-m3"
+  },
+  "tools": {
+    "enableFetch": false,
+    "uvxCommand": "uvx"
+  },
+  "output": {
+    "directory": "./output"
+  },
+  "knowledge": {
+    "directory": "./knowledge"
+  }
+}

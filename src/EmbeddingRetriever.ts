@@ -1,5 +1,5 @@
-import { logTitle } from "./utils";
-import VectorStore from "./VectorStore";
+import { logTitle } from "./utils.js";
+import VectorStore from "./VectorStore.js";
 import 'dotenv/config';
 
 export default class EmbeddingRetriever {
@@ -38,8 +38,12 @@ export default class EmbeddingRetriever {
             }),
         });
         const data = await response.json();
-        console.log(data.data[0].embedding);
-        return data.data[0].embedding;
+        const embedding = data?.data?.[0]?.embedding;
+        if (!Array.isArray(embedding)) {
+            throw new Error(`Embedding API returned an invalid response: ${JSON.stringify(data)}`);
+        }
+        console.log(`Embedding generated: model=${data.model ?? this.embeddingModel}, dimensions=${embedding.length}`);
+        return embedding;
     }
 
     async retrieve(query: string, topK: number = 3): Promise<string[]> {

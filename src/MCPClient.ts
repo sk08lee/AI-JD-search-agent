@@ -4,13 +4,15 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export default class MCPClient {
     private mcp: Client;
+    private name: string;
     private command: string;
-    private args: string[]
+    private args: string[];
     private transport: StdioClientTransport | null = null;
     private tools: Tool[] = [];
 
     constructor(name: string, command: string, args: string[], version?: string) {
         this.mcp = new Client({ name, version: version || "0.0.1" });
+        this.name = name;
         this.command = command;
         this.args = args;
     }
@@ -25,6 +27,10 @@ export default class MCPClient {
 
     public getTools() {
         return this.tools;
+    }
+
+    public getName() {
+        return this.name;
     }
 
     public callTool(name: string, params: Record<string, any>) {

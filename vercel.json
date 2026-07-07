@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "dist/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "dist/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
+    }
+  ],
+  "env": {
+    "OPENAI_API_KEY": "@openai_api_key",
+    "OPENAI_BASE_URL": "@openai_base_url",
+    "OPENAI_MODEL": "@openai_model",
+    "EMBEDDING_KEY": "@embedding_key",
+    "EMBEDDING_BASE_URL": "@embedding_base_url",
+    "EMBEDDING_MODEL": "@embedding_model"
+  }
+}

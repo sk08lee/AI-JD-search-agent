@@ -10,7 +10,7 @@ export default class VectorStore {
         this.vectorStore = [];
     }
 
-    async addEmbedding(embedding: number[], document: string) {
+         addEmbedding(embedding: number[], document: string) {
         this.vectorStore.push({ embedding, document });
     }
 

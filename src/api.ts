@@ -1,58 +1,27 @@
-import 'dotenv/config';
-import readline from 'readline';
 import MCPClient from "./MCPClient.js";
 import Agent from "./Agent.js";
-import path from "path";
 import EmbeddingRetriever from "./EmbeddingRetriever.js";
-import fs from "fs";
-import { logTitle } from "./utils.js";
-import { commandExists, resolveUvxCommand } from "./commandUtils.js";
 import { loadConfig } from "./config/index.js";
-import { taskTemplates, listTasks, TaskTemplate } from "./tasks/index.js";
+import { taskTemplates, TaskTemplate } from "./tasks/index.js";
 import { getReportTemplate } from "./reports/templates.js";
+import { commandExists, resolveUvxCommand } from "./commandUtils.js";
+import fs from "fs";
+import path from "path";
 
 const config = loadConfig();
 const outPath = path.join(process.cwd(), config.output.directory);
 const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 
-const uvxCommand = resolveUvxCommand();
-const fetchMCP = new MCPClient("mcp-server-fetch", uvxCommand, ['mcp-server-fetch']);
-const fileMCP = new MCPClient("mcp-server-file", "npx", ['-y', '@modelcontextprotocol/server-filesystem', outPath]);
-
-async function main() {
+export async function generateReport(taskId: string, jobTitle: string): Promise<string> {
     fs.mkdirSync(outPath, { recursive: true });
 
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
-    console.log('\n========================================');
-    console.log('         通用岗位搜索助手');
-    console.log('========================================\n');
-
-    const tasks = listTasks();
-    console.log('请选择任务类型：');
-    tasks.forEach((task, index) => {
-        console.log(`${index + 1}. [${task.id}] ${task.name} - ${task.description}`);
-    });
-    console.log(`${tasks.length + 1}. 自定义任务`);
-
-    const choice = await question(rl, '\n请输入序号：');
-    const choiceIndex = parseInt(choice) - 1;
-
-    let template: TaskTemplate;
-    if (choiceIndex >= 0 && choiceIndex < tasks.length) {
-        template = taskTemplates[tasks[choiceIndex].id];
-    } else {
-        const customName = await question(rl, '请输入自定义岗位名称：');
-        template = {
-            id: 'custom',
-            name: `${customName}岗位搜索`,
-            description: `搜索 ${customName} 岗位需求`,
-            systemPrompt: `你是一个严谨的求职研究助手。你需要区分事实、推断和建议。
+    const template = taskTemplates[taskId] || {
+        id: 'custom',
+        name: `${jobTitle}岗位搜索`,
+        description: `搜索 ${jobTitle} 岗位需求`,
+        systemPrompt: `你是一个严谨的求职研究助手。你需要区分事实、推断和建议。
 涉及岗位信息时，优先引用公开来源或本地知识库内容；如果信息不足，明确提醒用户补充来源。`,
-            userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobTitle} 相关岗位。
+        userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobTitle} 相关岗位。
 
 请优先结合我提供的本地 context，并在 fetch 工具可用时读取公开可访问的公司招聘官网或公开招聘页面，整理"{jobTitle}"相关岗位需求。
 
@@ -74,18 +43,11 @@ async function main() {
 - 信息来源或待补充来源
 
 不要编造具体公司正在招聘的岗位。如果无法读取某个来源，请明确标注"来源不可访问 / 需要人工补充"。`,
-            reportTemplate: 'job-demand-report',
-            knowledgeBaseDir: 'knowledge/jobs/general'
-        };
-    }
+        reportTemplate: 'job-demand-report',
+        knowledgeBaseDir: 'knowledge/jobs/general'
+    };
 
-    const jobTitle = await question(rl, '\n请输入具体岗位名称（默认使用任务名称）：') || template.name.replace('岗位搜索', '');
-    
-    rl.close();
-
-    console.log(`\n开始搜索 "${jobTitle}" 岗位需求...\n`);
-
-    const reportFileName = `${template.id}-job-demand-report.md`;
+    const reportFileName = `${taskId}-job-demand-report.md`;
     const reportPath = path.join(outPath, reportFileName);
 
     const context = await retrieveContext(template.knowledgeBaseDir);
@@ -93,15 +55,13 @@ async function main() {
     const model = config.llm.model;
     const systemPrompt = template.systemPrompt;
 
+    const uvxCommand = resolveUvxCommand();
+    const fetchMCP = new MCPClient("mcp-server-fetch", uvxCommand, ['mcp-server-fetch']);
+    const fileMCP = new MCPClient("mcp-server-file", "npx", ['-y', '@modelcontextprotocol/server-filesystem', outPath]);
+
     const enableFetchMCP = config.tools.enableFetch;
     const canUseFetchMCP = enableFetchMCP && commandExists(uvxCommand);
     const mcpClients = canUseFetchMCP ? [fetchMCP, fileMCP] : [fileMCP];
-
-    if (!enableFetchMCP) {
-        console.warn('[MCP degraded] Fetch MCP is disabled. Set ENABLE_FETCH_MCP=1 to enable public webpage fetching.');
-    } else if (!canUseFetchMCP) {
-        console.warn(`[MCP degraded] uvx command not found (${uvxCommand}), skipping Fetch MCP. The report will use local RAG context.`);
-    }
 
     const agent = new Agent(model, mcpClients, systemPrompt, context);
     let response = '';
@@ -122,20 +82,18 @@ async function main() {
 
     if (!fs.existsSync(reportPath) && response) {
         fs.writeFileSync(reportPath, response, 'utf-8');
-        console.warn(`\n[Fallback write] Report saved directly to ${reportPath}`);
     }
 
-    console.log(`\n========================================`);
-    console.log(`报告已生成：${reportFileName}`);
-    console.log(`路径：${reportPath}`);
-    console.log('========================================');
+    return response;
 }
 
-function question(rl: readline.Interface, prompt: string): Promise<string> {
-    return new Promise(resolve => rl.question(prompt, resolve));
+export function listTasks() {
+    return Object.entries(taskTemplates).map(([key, template]) => ({
+        id: key,
+        name: template.name,
+        description: template.description
+    }));
 }
-
-main();
 
 async function retrieveContext(knowledgeBaseDir: string) {
     const fullPath = path.join(knowledgeDir, knowledgeBaseDir);
@@ -143,11 +101,9 @@ async function retrieveContext(knowledgeBaseDir: string) {
     const files = collectMarkdownFiles(fullPath);
 
     if (files.length === 0) {
-        console.warn(`[RAG] No knowledge base files found in ${fullPath}, searching general knowledge...`);
         const generalPath = path.join(knowledgeDir, 'jobs', 'general');
         const generalFiles = collectMarkdownFiles(generalPath);
         if (generalFiles.length === 0) {
-            console.warn(`[RAG] No general knowledge base found either, proceeding without RAG context`);
             return '';
         }
         for (const file of generalFiles) {
@@ -162,8 +118,6 @@ async function retrieveContext(knowledgeBaseDir: string) {
     }
 
     const context = (await embeddingRetriever.retrieve('岗位需求分析', 3)).join('\n');
-    logTitle('CONTEXT');
-    console.log(context);
     return context;
 }
 

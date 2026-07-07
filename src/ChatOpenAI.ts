@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
-import 'dotenv/config'
-import { logTitle } from "./utils";
+import 'dotenv/config';
+import { logTitle } from "./utils.js";
 
 export interface ToolCall {
     id: string;
@@ -9,7 +9,7 @@ export interface ToolCall {
         name: string;
         arguments: string;
     };
-}
+} 
 
 export default class ChatOpenAI {
     private llm: OpenAI;
@@ -43,10 +43,13 @@ export default class ChatOpenAI {
         let toolCalls: ToolCall[] = [];
         logTitle('RESPONSE');
         for await (const chunk of stream) {
-            const delta = chunk.choices[0].delta;
+            const choice = chunk.choices?.[0];
+            const delta = choice?.delta;
+            // 部分兼容层/事件 chunk 可能不含 choices/delta，直接跳过
+            if (!delta) continue;
             // 处理普通Content
             if (delta.content) {
-                const contentChunk = chunk.choices[0].delta.content || "";
+                const contentChunk = delta.content || "";
                 content += contentChunk;
                 process.stdout.write(contentChunk);
             }
@@ -71,6 +74,7 @@ export default class ChatOpenAI {
         };
     }
 
+    //追加工具执行结果到工具执行历史中
     public appendToolResult(toolCallId: string, toolOutput: string) {
         this.messages.push({
             role: "tool",
@@ -79,9 +83,10 @@ export default class ChatOpenAI {
         });
     }
 
+    //将MCP格式的工具转化为stream格式的工具
     private getToolsDefinition(): OpenAI.Chat.Completions.ChatCompletionTool[] {
         return this.tools.map((tool) => ({
-            type: "function",
+            type: "function" as const,
             function: {
                 name: tool.name,
                 description: tool.description,
