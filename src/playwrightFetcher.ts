@@ -1,4 +1,4 @@
-import type { Browser } from 'playwright';
+import type { Browser, Page } from 'playwright';
 
 let browserPromise: Promise<Browser> | null = null;
 let browserUnavailable = false;
@@ -8,6 +8,18 @@ export function isPlaywrightFetchEnabled(): boolean {
 }
 
 export async function fetchPageWithPlaywright(url: string, waitMs = 5000): Promise<string> {
+    return withPlaywrightPage(async (page) => {
+        await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+        });
+        await page.waitForTimeout(waitMs);
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
+        return (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+    });
+}
+
+export async function withPlaywrightPage<T>(handler: (page: Page) => Promise<T>): Promise<T> {
     if (!isPlaywrightFetchEnabled()) {
         throw new Error('Playwright fetch is disabled');
     }
@@ -18,15 +30,7 @@ export async function fetchPageWithPlaywright(url: string, waitMs = 5000): Promi
     });
 
     try {
-        await page.goto(url, {
-            waitUntil: 'domcontentloaded',
-            timeout: 30000
-        });
-        await page.waitForTimeout(waitMs);
-        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
-
-        const text = await page.locator('body').innerText();
-        return text.replace(/\s+/g, ' ').trim();
+        return await handler(page);
     } finally {
         await page.close();
     }

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import iconv from 'iconv-lite';
-import { fetchPageWithPlaywright, isPlaywrightFetchEnabled } from './playwrightFetcher.js';
+import { formatJobListings, searchPortalJobs, type CareerJobListing, type PortalSearchConfig } from './careerJobSearch.js';
+import { isPlaywrightFetchEnabled } from './playwrightFetcher.js';
 
 export interface CareerPortal {
     company: string;
@@ -11,6 +11,7 @@ export interface CareerPortal {
     searchUrl?: string;
     fetchMode?: 'html' | 'playwright';
     waitMs?: number;
+    search?: PortalSearchConfig;
 }
 
 export interface CareerFetchOptions {
@@ -24,13 +25,12 @@ export interface CareerFetchResult {
     url: string;
     status: 'success' | 'failed';
     fetchMode: 'html' | 'playwright';
+    jobs: CareerJobListing[];
     excerpt?: string;
     error?: string;
 }
 
 const DEFAULT_MAX_SOURCES = 16;
-const FETCH_TIMEOUT_MS = 15000;
-const MAX_EXCERPT_CHARS = 6000;
 
 export function loadCareerPortals(): CareerPortal[] {
     const filePath = path.join(process.cwd(), 'knowledge', 'sources', 'career_portals.json');
@@ -107,34 +107,13 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
     }
 
     const targets = buildPortalTargets(portals, keyword, maxSources);
-    const htmlTargets = targets.filter((target) => target.fetchMode !== 'playwright');
-    const playwrightTargets = targets.filter((target) => target.fetchMode === 'playwright');
+    const results: CareerFetchResult[] = [];
 
-    const htmlResults = await Promise.all(
-        htmlTargets.map((target) => fetchHtmlPortal(target.company, target.targetUrl, target.label))
-    );
-
-    const playwrightResults: CareerFetchResult[] = [];
-    if (playwrightTargets.length > 0 && isPlaywrightFetchEnabled()) {
-        for (const target of playwrightTargets) {
-            playwrightResults.push(
-                await fetchPlaywrightPortal(target.company, target.targetUrl, target.waitMs || 5000, target.label)
-            );
-        }
-    } else if (playwrightTargets.length > 0) {
-        for (const target of playwrightTargets) {
-            playwrightResults.push({
-                company: target.company,
-                label: target.label,
-                url: target.targetUrl,
-                status: 'failed',
-                fetchMode: 'playwright',
-                error: 'Playwright 抓取已关闭，无法渲染动态页面'
-            });
-        }
+    for (const target of targets) {
+        results.push(await searchPortal(target, keyword));
     }
 
-    return [...htmlResults, ...playwrightResults];
+    return results;
 }
 
 export function formatCareerFetchContext(results: CareerFetchResult[], keyword: string, jobCategory?: string): string {
@@ -146,25 +125,31 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
         ? `岗位类型：${jobCategory.trim()}；搜索关键词：${keyword}`
         : `搜索关键词：${keyword}`;
 
-    const successes = results.filter((item) => item.status === 'success' && item.excerpt);
+    const successes = results.filter((item) => item.status === 'success');
     const failures = results.filter((item) => item.status === 'failed');
+    const totalJobs = successes.reduce((count, item) => count + item.jobs.length, 0);
 
     const sections: string[] = [
-        '## 自动抓取的公开招聘官网内容',
+        '## 自动检索的公开招聘官网岗位信息',
         categoryLine,
-        '说明：搜索关键词仅使用“具体岗位名称”，不包含岗位类型前缀。'
+        '说明：系统会进入招聘官网搜索页/详情页，提取与关键词匹配的具体岗位条目，而不是只抓取首页标题。'
     ];
 
-    if (successes.length > 0) {
-        sections.push('以下内容为系统自动从公开招聘官网预抓取，请优先引用这些来源：');
-        for (const item of successes) {
-            const title = item.label ? `${item.company} - ${item.label}` : item.company;
-            sections.push(`### ${title}\n- 来源：${item.url}\n- 抓取方式：${item.fetchMode}\n\n${item.excerpt}`);
+    if (totalJobs > 0) {
+        sections.push(`共检索到 ${totalJobs} 条具体岗位信息：`);
+    }
+
+    for (const item of successes) {
+        const title = item.label ? `${item.company} - ${item.label}` : item.company;
+        sections.push(`### ${title}\n- 搜索入口：${item.url}\n- 抓取方式：${item.fetchMode}\n- 匹配岗位数：${item.jobs.length}\n\n${formatJobListings(item.jobs)}`);
+
+        if (item.jobs.length === 0 && item.excerpt) {
+            sections.push(`- 页面摘要：${item.excerpt}`);
         }
     }
 
     if (failures.length > 0) {
-        sections.push('### 未能抓取的来源');
+        sections.push('### 未能检索到具体岗位的来源');
         for (const item of failures) {
             const title = item.label ? `${item.company} - ${item.label}` : item.company;
             sections.push(`- ${title}（${item.url}，${item.fetchMode}）：${item.error || '来源不可访问'}`);
@@ -174,142 +159,62 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
     return sections.join('\n\n');
 }
 
-async function fetchHtmlPortal(company: string, url: string, label?: string): Promise<CareerFetchResult> {
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+async function searchPortal(target: CareerPortal & { targetUrl: string }, keyword: string): Promise<CareerFetchResult> {
+    const fetchMode = target.fetchMode || 'html';
 
-        const response = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'zh-CN,zh;q=0.9'
-            },
-            redirect: 'follow'
-        });
-
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-            return {
-                company,
-                label,
-                url,
-                status: 'failed',
-                fetchMode: 'html',
-                error: `HTTP ${response.status}`
-            };
-        }
-
-        const buffer = Buffer.from(await response.arrayBuffer());
-        const html = decodeHtmlBuffer(buffer, response.headers.get('content-type') || '');
-        const excerpt = htmlToText(html).slice(0, MAX_EXCERPT_CHARS);
-
-        if (!excerpt || excerpt.length < 80) {
-            return {
-                company,
-                label,
-                url,
-                status: 'failed',
-                fetchMode: 'html',
-                error: '页面内容过少，可能为动态渲染页面'
-            };
-        }
-
+    if (fetchMode === 'playwright' && !isPlaywrightFetchEnabled()) {
         return {
-            company,
-            label,
-            url,
-            status: 'success',
-            fetchMode: 'html',
-            excerpt
-        };
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-            company,
-            label,
-            url,
+            company: target.company,
+            label: target.label,
+            url: target.targetUrl,
             status: 'failed',
-            fetchMode: 'html',
-            error: message.includes('abort') ? '请求超时' : message
+            fetchMode: 'playwright',
+            jobs: [],
+            error: 'Playwright 抓取已关闭，无法进入动态招聘页搜索岗位'
         };
     }
-}
 
-async function fetchPlaywrightPortal(company: string, url: string, waitMs: number, label?: string): Promise<CareerFetchResult> {
     try {
-        const text = await fetchPageWithPlaywright(url, waitMs);
-        const excerpt = text.slice(0, MAX_EXCERPT_CHARS);
+        const searchResult = await searchPortalJobs({
+            searchUrl: target.targetUrl,
+            landingUrl: target.url,
+            keyword,
+            fetchMode,
+            waitMs: target.waitMs || 5000,
+            search: target.search
+        });
 
-        if (!excerpt || excerpt.length < 80) {
+        if (searchResult.error && searchResult.jobs.length === 0) {
             return {
-                company,
-                label,
-                url,
+                company: target.company,
+                label: target.label,
+                url: searchResult.searchUrl,
                 status: 'failed',
-                fetchMode: 'playwright',
-                error: '渲染后页面内容过少'
+                fetchMode,
+                jobs: [],
+                error: searchResult.error
             };
         }
 
         return {
-            company,
-            label,
-            url,
+            company: target.company,
+            label: target.label,
+            url: searchResult.searchUrl,
             status: 'success',
-            fetchMode: 'playwright',
-            excerpt
+            fetchMode,
+            jobs: searchResult.jobs,
+            excerpt: searchResult.pageSummary
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return {
-            company,
-            label,
-            url,
+            company: target.company,
+            label: target.label,
+            url: target.targetUrl,
             status: 'failed',
-            fetchMode: 'playwright',
+            fetchMode,
+            jobs: [],
             error: message
         };
     }
-}
-
-function decodeHtmlBuffer(buffer: Buffer, contentType: string): string {
-    const headerCharset = contentType.match(/charset=([^;]+)/i)?.[1]?.trim().toLowerCase();
-    const htmlHead = buffer.toString('utf8', 0, Math.min(buffer.length, 4096));
-    const metaCharset = htmlHead.match(/<meta[^>]+charset=["']?([^"'\s>]+)/i)?.[1]?.toLowerCase();
-    const charset = normalizeCharset(headerCharset || metaCharset || 'utf-8');
-
-    if (charset === 'utf-8' || charset === 'utf8') {
-        return buffer.toString('utf8');
-    }
-
-    try {
-        return iconv.decode(buffer, charset);
-    } catch {
-        return buffer.toString('utf8');
-    }
-}
-
-function normalizeCharset(charset: string): string {
-    if (charset.includes('gbk') || charset.includes('gb2312') || charset.includes('gb18030')) {
-        return 'gbk';
-    }
-    return charset.replace(/"/g, '');
-}
-
-function htmlToText(html: string): string {
-    return html
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/\s+/g, ' ')
-        .trim();
 }

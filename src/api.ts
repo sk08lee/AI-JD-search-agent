@@ -27,8 +27,8 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
 涉及岗位信息时，优先引用公开来源或本地知识库内容；如果信息不足，明确提醒用户补充来源。`,
         userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobCategory} 相关岗位，具体目标岗位为 {jobTitle}。
 
-请优先结合我提供的本地 context 和系统自动预抓取的公开招聘官网内容，整理"{searchTarget}"相关岗位需求。
-如果 context 中已包含官网抓取结果，请优先引用并标注来源 URL；不要编造具体公司正在招聘的岗位。
+请优先结合我提供的本地 context 和系统自动检索到的具体岗位条目（含岗位详情页摘录），整理"{searchTarget}"相关岗位需求。
+如果 context 中已包含具体岗位链接、岗位名称和详情摘录，请优先引用并标注来源 URL；不要编造具体公司正在招聘的岗位。
 
 请把岗位按三类组织：
 1. 实习 internship
@@ -62,7 +62,8 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
 
     if (careerResults.length > 0) {
         const successCount = careerResults.filter((item) => item.status === 'success').length;
-        console.log(`[CareerFetch] keyword="${jobTitle}" fetched ${successCount}/${careerResults.length} career portal pages`);
+        const jobCount = careerResults.reduce((total, item) => total + item.jobs.length, 0);
+        console.log(`[CareerFetch] keyword="${jobTitle}" matched ${jobCount} jobs from ${successCount}/${careerResults.length} sources`);
     }
 
     const model = config.llm.model;
