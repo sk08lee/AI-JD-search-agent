@@ -1,0 +1,62 @@
+[
+  {
+    "company": "字节跳动",
+    "url": "https://jobs.bytedance.com/campus",
+    "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}"
+  },
+  {
+    "company": "腾讯",
+    "url": "https://join.qq.com/post.html",
+    "searchUrl": "https://join.qq.com/post.html?query={keyword}"
+  },
+  {
+    "company": "阿里巴巴",
+    "url": "https://talent.alibaba.com/campus/home",
+    "searchUrl": "https://talent.alibaba.com/off-campus/position-list?keywords={keyword}"
+  },
+  {
+    "company": "美团",
+    "url": "https://zhaopin.meituan.com/web/campus",
+    "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}"
+  },
+  {
+    "company": "百度",
+    "url": "https://talent.baidu.com/jobs/list",
+    "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}"
+  },
+  {
+    "company": "华为",
+    "url": "https://career.huawei.com/reccampportal/portal/campus-recruitment",
+    "searchUrl": "https://career.huawei.com/reccampportal/portal/campus-recruitment?keyword={keyword}"
+  },
+  {
+    "company": "京东",
+    "url": "https://zhaopin.jd.com/web/position/list",
+    "searchUrl": "https://zhaopin.jd.com/web/position/list?keyword={keyword}"
+  },
+  {
+    "company": "网易",
+    "url": "https://game.163.com/job/",
+    "searchUrl": "https://game.163.com/job/?keyword={keyword}"
+  },
+  {
+    "company": "小米",
+    "url": "https://hr.xiaomi.com/campus",
+    "searchUrl": "https://hr.xiaomi.com/campus?keyword={keyword}"
+  },
+  {
+    "company": "商汤科技",
+    "url": "https://www.sensetime.com/cn/join-us",
+    "searchUrl": "https://www.sensetime.com/cn/join-us?keyword={keyword}"
+  },
+  {
+    "company": "旷视科技",
+    "url": "https://megvii.zhiye.com/campus",
+    "searchUrl": "https://megvii.zhiye.com/campus?keyword={keyword}"
+  },
+  {
+    "company": "科大讯飞",
+    "url": "https://campus.iflytek.com/",
+    "searchUrl": "https://campus.iflytek.com/official/pc/home?keyword={keyword}"
+  }
+]

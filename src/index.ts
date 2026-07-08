@@ -7,6 +7,7 @@ import EmbeddingRetriever from "./EmbeddingRetriever.js";
 import fs from "fs";
 import { logTitle } from "./utils.js";
 import { commandExists, resolveUvxCommand } from "./commandUtils.js";
+import { fetchCareerPortalPages, formatCareerFetchContext } from "./careerPortalFetcher.js";
 import { loadConfig } from "./config/index.js";
 import { taskTemplates, listTasks, TaskTemplate } from "./tasks/index.js";
 import { getReportTemplate } from "./reports/templates.js";
@@ -88,7 +89,15 @@ async function main() {
     const reportFileName = `${template.id}-job-demand-report.md`;
     const reportPath = path.join(outPath, reportFileName);
 
-    const context = await retrieveContext(template.knowledgeBaseDir);
+    const ragContext = await retrieveContext(template.knowledgeBaseDir);
+    const careerResults = await fetchCareerPortalPages(jobTitle);
+    const webContext = formatCareerFetchContext(careerResults);
+    const context = [ragContext, webContext].filter(Boolean).join('\n\n---\n\n');
+
+    if (careerResults.length > 0) {
+        const successCount = careerResults.filter((item) => item.status === 'success').length;
+        console.log(`[CareerFetch] fetched ${successCount}/${careerResults.length} career portal pages for "${jobTitle}"`);
+    }
 
     const model = config.llm.model;
     const systemPrompt = template.systemPrompt;

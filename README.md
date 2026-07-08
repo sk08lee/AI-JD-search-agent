@@ -251,6 +251,19 @@ crontab -e
 2. SSH 登录 ECS，`git pull` 最新代码。
 3. 执行 `deploy/aliyun/deploy-nginx.sh` 拉起新镜像并热更新容器。
 
+### 自动抓取招聘官网
+
+生成报告前，系统会根据岗位关键词自动访问 `knowledge/sources/career_portals.json` 中的公开招聘官网，并将抓取结果注入 LLM 上下文。
+
+可在 `deploy/aliyun/.env.prod` 中配置：
+
+```bash
+ENABLE_AUTO_CAREER_FETCH=1
+CAREER_FETCH_MAX_SOURCES=8
+```
+
+说明：该能力只抓取公开官网页面，不绕过 BOSS/拉勾等平台的登录或反爬限制。
+
 ### 已提供的阿里云部署文件
 
 - `deploy/aliyun/docker-compose.ecs.yml`：单容器部署（无 Nginx）编排文件。
