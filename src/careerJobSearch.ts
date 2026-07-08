@@ -1,4 +1,5 @@
 import type { Page } from 'playwright';
+import { attachStructuredJobFields, formatStructuredJobListing } from './careerJobFields.js';
 import { fetchPageWithPlaywright, isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
 
 export interface PortalSearchConfig {
@@ -15,6 +16,10 @@ export interface CareerJobListing {
     detailUrl: string;
     summary: string;
     detailExcerpt?: string;
+    location?: string;
+    schedule?: string;
+    requirements?: string;
+    responsibilities?: string;
 }
 
 export interface PortalJobSearchResult {
@@ -54,20 +59,12 @@ export async function searchPortalJobs(options: {
 
 export function formatJobListings(jobs: CareerJobListing[]): string {
     if (jobs.length === 0) {
-        return '未检索到与关键词高度匹配的具体岗位条目。';
+        return '';
     }
 
-    return jobs.map((job, index) => {
-        const lines = [
-            `${index + 1}. **${job.title}**`,
-            `- 详情页：${job.detailUrl}`,
-            `- 列表摘要：${job.summary}`
-        ];
-        if (job.detailExcerpt) {
-            lines.push(`- 岗位详情摘录：${job.detailExcerpt}`);
-        }
-        return lines.join('\n');
-    }).join('\n\n');
+    return jobs
+        .map((job, index) => formatStructuredJobListing(job, index))
+        .join('\n\n');
 }
 
 function normalizeSearchConfig(search?: PortalSearchConfig): Required<PortalSearchConfig> {
@@ -145,7 +142,7 @@ async function searchJobsWithHtml(
 
         return {
             searchUrl,
-            jobs: jobs.length > 0 ? jobs : candidates.slice(0, config.maxResults),
+            jobs: (jobs.length > 0 ? jobs : candidates.slice(0, config.maxResults)).map(attachStructuredJobFields),
             pageSummary: htmlToText(html).slice(0, 1200)
         };
     } catch (error) {
@@ -231,16 +228,16 @@ async function enrichJobsWithDetailPages(
             await page.goto(candidate.detailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await page.waitForTimeout(Math.min(waitMs, 3000));
             const detailText = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim();
-            enriched.push({
+            enriched.push(attachStructuredJobFields({
                 ...candidate,
                 detailExcerpt: detailText.slice(0, 1800)
-            });
+            }));
         } catch {
-            enriched.push(candidate);
+            enriched.push(attachStructuredJobFields(candidate));
         }
     }
 
-    const remaining = candidates.slice(config.maxDetailPages);
+    const remaining = candidates.slice(config.maxDetailPages).map(attachStructuredJobFields);
     return [...enriched, ...remaining];
 }
 
@@ -296,12 +293,12 @@ async function fetchHtmlJobDetails(candidates: CareerJobListing[], keyword: stri
                 continue;
             }
 
-            enriched.push({
+            enriched.push(attachStructuredJobFields({
                 ...candidate,
                 detailExcerpt: detailText.slice(0, 1800)
-            });
+            }));
         } catch {
-            enriched.push(candidate);
+            enriched.push(attachStructuredJobFields(candidate));
         }
     }
 

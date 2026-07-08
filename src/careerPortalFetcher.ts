@@ -117,7 +117,8 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
 }
 
 export function formatCareerFetchContext(results: CareerFetchResult[], keyword: string, jobCategory?: string): string {
-    if (results.length === 0) {
+    const matchedSources = results.filter((item) => item.jobs.length > 0);
+    if (matchedSources.length === 0) {
         return '';
     }
 
@@ -125,35 +126,18 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
         ? `岗位类型：${jobCategory.trim()}；搜索关键词：${keyword}`
         : `搜索关键词：${keyword}`;
 
-    const successes = results.filter((item) => item.status === 'success');
-    const failures = results.filter((item) => item.status === 'failed');
-    const totalJobs = successes.reduce((count, item) => count + item.jobs.length, 0);
+    const totalJobs = matchedSources.reduce((count, item) => count + item.jobs.length, 0);
 
     const sections: string[] = [
         '## 自动检索的公开招聘官网岗位信息',
         categoryLine,
-        '说明：系统会进入招聘官网搜索页/详情页，提取与关键词匹配的具体岗位条目，而不是只抓取首页标题。'
+        `共检索到 ${totalJobs} 条具体岗位信息（仅展示匹配岗位数大于 0 的公司）。`,
+        '每个岗位仅保留：工作（实习）地点、工作（实习）时间、招聘条件、工作（实习）内容。'
     ];
 
-    if (totalJobs > 0) {
-        sections.push(`共检索到 ${totalJobs} 条具体岗位信息：`);
-    }
-
-    for (const item of successes) {
+    for (const item of matchedSources) {
         const title = item.label ? `${item.company} - ${item.label}` : item.company;
-        sections.push(`### ${title}\n- 搜索入口：${item.url}\n- 抓取方式：${item.fetchMode}\n- 匹配岗位数：${item.jobs.length}\n\n${formatJobListings(item.jobs)}`);
-
-        if (item.jobs.length === 0 && item.excerpt) {
-            sections.push(`- 页面摘要：${item.excerpt}`);
-        }
-    }
-
-    if (failures.length > 0) {
-        sections.push('### 未能检索到具体岗位的来源');
-        for (const item of failures) {
-            const title = item.label ? `${item.company} - ${item.label}` : item.company;
-            sections.push(`- ${title}（${item.url}，${item.fetchMode}）：${item.error || '来源不可访问'}`);
-        }
+        sections.push(`### ${title}\n\n${formatJobListings(item.jobs)}`);
     }
 
     return sections.join('\n\n');
