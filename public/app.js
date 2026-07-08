@@ -50,13 +50,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateMockReport(jobCategory, jobTitle) {
-        return `# ${jobCategory} · ${jobTitle} 岗位需求报告
+        return `# ${jobTitle} 岗位需求报告
 
 > 生成说明：本报告由前端模拟生成。完整功能需要部署后端服务。
 
 ## 1. 岗位搜索概览
 
-本次搜索面向计算机专业研究生，目标岗位类型为 ${jobCategory}，具体岗位为 ${jobTitle}。
+本次搜索面向计算机专业研究生，岗位类型为「${jobCategory}」，具体岗位为「${jobTitle}」。
 
 ## 2. 实习 / 校招 / 社招岗位差异
 
@@ -114,12 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const jobTitle = jobTitleInput.value.trim();
 
         if (!jobCategory) {
-            alert('请输入岗位类型');
+            alert('请输入岗位类型，例如：产品、技术');
             return;
         }
 
         if (!jobTitle) {
-            alert('请输入具体岗位名称');
+            alert('请输入具体岗位名称，例如：AI产品经理、Java后端开发');
             return;
         }
 
