@@ -195,6 +195,12 @@ docker push registry.cn-hangzhou.aliyuncs.com/<namespace>/ai-job-agent:latest
 bash deploy/aliyun/deploy-nginx.sh registry.cn-hangzhou.aliyuncs.com/<namespace>/ai-job-agent:latest agent.example.com
 ```
 
+如果暂时没有可用远程镜像（Docker Hub / ACR 拉取失败），可在 ECS 本地构建并启动：
+
+```bash
+bash deploy/aliyun/build-and-run.sh 9000
+```
+
 ### 3. 启用 HTTPS 证书
 
 确认域名已解析到 ECS 后执行：

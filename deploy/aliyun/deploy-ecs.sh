@@ -14,12 +14,15 @@ fi
 
 if [[ $# -lt 1 ]]; then
   echo "usage: ./deploy/aliyun/deploy-ecs.sh <image> [host_port]"
-  echo "example: ./deploy/aliyun/deploy-ecs.sh registry.cn-hangzhou.aliyuncs.com/your_ns/ai-job-agent:latest 9000"
+  echo "example (remote): ./deploy/aliyun/deploy-ecs.sh registry.cn-hangzhou.aliyuncs.com/your_ns/ai-job-agent:latest 9000"
+  echo "example (local):  ./deploy/aliyun/deploy-ecs.sh ai-job-agent:local 9000"
+  echo "tip: set SKIP_PULL=1 to skip pulling (recommended for local images)"
   exit 1
 fi
 
 IMAGE="$1"
 HOST_PORT="${2:-9000}"
+SKIP_PULL="${SKIP_PULL:-0}"
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [[ ! -f "$DEPLOY_DIR/.env.prod" ]]; then
@@ -31,6 +34,12 @@ fi
 mkdir -p "$DEPLOY_DIR/output"
 export IMAGE HOST_PORT
 
-docker compose -f "$DEPLOY_DIR/docker-compose.ecs.yml" pull
+if [[ "$SKIP_PULL" != "1" ]]; then
+  docker compose -f "$DEPLOY_DIR/docker-compose.ecs.yml" pull || {
+    echo "pull failed. For local images, rebuild then retry with SKIP_PULL=1"
+    exit 1
+  }
+fi
+
 docker compose -f "$DEPLOY_DIR/docker-compose.ecs.yml" up -d
 docker compose -f "$DEPLOY_DIR/docker-compose.ecs.yml" ps
