@@ -1,78 +1,202 @@
 [
   {
     "company": "字节跳动",
-    "url": "https://jobs.bytedance.com/campus/position",
+    "label": "校园招聘（含实习）",
+    "channel": "campus",
+    "url": "https://jobs.bytedance.com/campus",
     "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}",
     "fetchMode": "playwright",
     "waitMs": 5000
   },
   {
+    "company": "字节跳动",
+    "label": "社会招聘",
+    "channel": "experienced",
+    "url": "https://jobs.bytedance.com/experienced/",
+    "searchUrl": "https://jobs.bytedance.com/experienced/position?keywords={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "字节跳动",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://jobs.bytedance.com/",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
     "company": "腾讯",
-    "url": "https://join.qq.com/post.html",
+    "label": "校园招聘（含实习）",
+    "channel": "campus",
+    "url": "https://join.qq.com",
     "searchUrl": "https://join.qq.com/post.html?query={keyword}",
     "fetchMode": "playwright",
     "waitMs": 5000
   },
   {
+    "company": "腾讯",
+    "label": "社会招聘",
+    "channel": "social",
+    "url": "https://careers.tencent.com/jobopportunity.html",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "腾讯",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://careers.tencent.com/",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
     "company": "阿里巴巴",
-    "url": "https://talent.alibaba.com/off-campus/position-list",
-    "searchUrl": "https://talent.alibaba.com/off-campus/position-list?search={keyword}",
+    "label": "校园招聘",
+    "channel": "campus",
+    "url": "https://campus-talent.alibaba.com/",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "阿里巴巴",
+    "label": "控股集团社会招聘",
+    "channel": "social",
+    "url": "https://talent-holding.alibaba.com/",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "阿里巴巴",
+    "label": "集团统一招聘官网",
+    "channel": "unified",
+    "url": "https://talent.alibaba.com/",
     "fetchMode": "playwright",
     "waitMs": 5000
   },
   {
     "company": "美团",
-    "url": "https://zhaopin.meituan.com/web/position",
+    "label": "校园招聘",
+    "channel": "campus",
+    "url": "https://zhaopin.meituan.com/web/campus",
     "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
     "waitMs": 5000
   },
   {
+    "company": "美团",
+    "label": "社会招聘",
+    "channel": "social",
+    "url": "https://zhaopin.meituan.com/web/social",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "美团",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://zhaopin.meituan.com/",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
     "company": "百度",
-    "url": "https://talent.baidu.com/jobs/list",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://talent.baidu.com/jobs/",
     "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}",
     "fetchMode": "html"
   },
   {
     "company": "华为",
-    "url": "https://career.huawei.com/reccampportal/portal/campus-recruitment.html",
-    "searchUrl": "https://career.huawei.com/reccampportal/portal/campus-recruitment.html",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://career.huawei.com/",
     "fetchMode": "html"
   },
   {
     "company": "京东",
-    "url": "https://zhaopin.jd.com/web/position/list",
-    "searchUrl": "https://zhaopin.jd.com/web/position/list?keyword={keyword}",
+    "label": "校园招聘（含实习）",
+    "channel": "campus",
+    "url": "https://campus.jd.com",
+    "fetchMode": "playwright",
+    "waitMs": 5000
+  },
+  {
+    "company": "网易",
+    "label": "网易集团校园招聘",
+    "channel": "campus",
+    "url": "https://campus.163.com",
     "fetchMode": "html"
   },
   {
     "company": "网易",
-    "url": "https://hr.163.com/official/jobs",
-    "searchUrl": "https://hr.163.com/official/jobs?keyword={keyword}",
+    "label": "网易互娱校园招聘",
+    "channel": "campus",
+    "url": "https://game.campus.163.com",
+    "fetchMode": "html"
+  },
+  {
+    "company": "网易",
+    "label": "网易雷火校园招聘",
+    "channel": "campus",
+    "url": "https://leihuo.163.com/campus/",
+    "fetchMode": "html"
+  },
+  {
+    "company": "网易",
+    "label": "网易游戏社会招聘",
+    "channel": "social",
+    "url": "https://hr.game.163.com/recruit.html",
     "fetchMode": "html"
   },
   {
     "company": "小米",
+    "label": "校园招聘",
+    "channel": "campus",
     "url": "https://hr.xiaomi.com/campus",
-    "searchUrl": "https://hr.xiaomi.com/campus?keyword={keyword}",
     "fetchMode": "html"
   },
   {
     "company": "商汤科技",
-    "url": "https://hr.sensetime.com/campus",
-    "searchUrl": "https://hr.sensetime.com/campus?keyword={keyword}",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://hr.sensetime.com",
+    "fetchMode": "html"
+  },
+  {
+    "company": "商汤科技",
+    "label": "官方招聘页面",
+    "channel": "unified",
+    "url": "https://www.sensetime.com/career",
     "fetchMode": "html"
   },
   {
     "company": "旷视科技",
-    "url": "https://megvii.zhiye.com/campus",
-    "searchUrl": "https://megvii.zhiye.com/campus?keyword={keyword}",
+    "label": "校园招聘",
+    "channel": "campus",
+    "url": "http://zhaopin.megvii.com",
+    "fetchMode": "html"
+  },
+  {
+    "company": "旷视科技",
+    "label": "招聘官网",
+    "channel": "unified",
+    "url": "https://www.megvii.com/join_us",
     "fetchMode": "html"
   },
   {
     "company": "科大讯飞",
-    "url": "https://campus.iflytek.com/official/pc/home",
-    "searchUrl": "https://campus.iflytek.com/official/pc/home?keyword={keyword}",
+    "label": "统一招聘官网",
+    "channel": "unified",
+    "url": "https://iflytek.zhiye.com",
+    "fetchMode": "html"
+  },
+  {
+    "company": "科大讯飞",
+    "label": "校园招聘",
+    "channel": "campus",
+    "url": "https://campus.iflytek.com",
     "fetchMode": "html"
   }
 ]

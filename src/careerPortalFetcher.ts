@@ -5,6 +5,8 @@ import { fetchPageWithPlaywright, isPlaywrightFetchEnabled } from './playwrightF
 
 export interface CareerPortal {
     company: string;
+    label?: string;
+    channel?: 'unified' | 'campus' | 'experienced' | 'social';
     url: string;
     searchUrl?: string;
     fetchMode?: 'html' | 'playwright';
@@ -18,6 +20,7 @@ export interface CareerFetchOptions {
 
 export interface CareerFetchResult {
     company: string;
+    label?: string;
     url: string;
     status: 'success' | 'failed';
     fetchMode: 'html' | 'playwright';
@@ -25,7 +28,7 @@ export interface CareerFetchResult {
     error?: string;
 }
 
-const DEFAULT_MAX_SOURCES = 8;
+const DEFAULT_MAX_SOURCES = 16;
 const FETCH_TIMEOUT_MS = 15000;
 const MAX_EXCERPT_CHARS = 6000;
 
@@ -44,9 +47,44 @@ export function loadCareerPortals(): CareerPortal[] {
     }
 }
 
+export function selectPortalTargets(portals: CareerPortal[], maxSources: number): CareerPortal[] {
+    const channelOrder = ['campus', 'unified', 'social', 'experienced'];
+    const selected: CareerPortal[] = [];
+    const used = new Set<string>();
+
+    for (const channel of channelOrder) {
+        for (const portal of portals) {
+            if (selected.length >= maxSources) {
+                return selected;
+            }
+
+            const key = `${portal.company}:${portal.url}`;
+            const portalChannel = portal.channel || 'unified';
+            if (portalChannel === channel && !used.has(key)) {
+                selected.push(portal);
+                used.add(key);
+            }
+        }
+    }
+
+    for (const portal of portals) {
+        if (selected.length >= maxSources) {
+            break;
+        }
+
+        const key = `${portal.company}:${portal.url}`;
+        if (!used.has(key)) {
+            selected.push(portal);
+            used.add(key);
+        }
+    }
+
+    return selected;
+}
+
 export function buildPortalTargets(portals: CareerPortal[], keyword: string, maxSources: number): Array<CareerPortal & { targetUrl: string }> {
     const encoded = encodeURIComponent(keyword.trim());
-    return portals.slice(0, maxSources).map((portal) => ({
+    return selectPortalTargets(portals, maxSources).map((portal) => ({
         ...portal,
         targetUrl: (portal.searchUrl || portal.url).replace(/\{keyword\}/g, encoded)
     }));
@@ -73,18 +111,21 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
     const playwrightTargets = targets.filter((target) => target.fetchMode === 'playwright');
 
     const htmlResults = await Promise.all(
-        htmlTargets.map((target) => fetchHtmlPortal(target.company, target.targetUrl))
+        htmlTargets.map((target) => fetchHtmlPortal(target.company, target.targetUrl, target.label))
     );
 
     const playwrightResults: CareerFetchResult[] = [];
     if (playwrightTargets.length > 0 && isPlaywrightFetchEnabled()) {
         for (const target of playwrightTargets) {
-            playwrightResults.push(await fetchPlaywrightPortal(target.company, target.targetUrl, target.waitMs || 5000));
+            playwrightResults.push(
+                await fetchPlaywrightPortal(target.company, target.targetUrl, target.waitMs || 5000, target.label)
+            );
         }
     } else if (playwrightTargets.length > 0) {
         for (const target of playwrightTargets) {
             playwrightResults.push({
                 company: target.company,
+                label: target.label,
                 url: target.targetUrl,
                 status: 'failed',
                 fetchMode: 'playwright',
@@ -117,21 +158,23 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
     if (successes.length > 0) {
         sections.push('以下内容为系统自动从公开招聘官网预抓取，请优先引用这些来源：');
         for (const item of successes) {
-            sections.push(`### ${item.company}\n- 来源：${item.url}\n- 抓取方式：${item.fetchMode}\n\n${item.excerpt}`);
+            const title = item.label ? `${item.company} - ${item.label}` : item.company;
+            sections.push(`### ${title}\n- 来源：${item.url}\n- 抓取方式：${item.fetchMode}\n\n${item.excerpt}`);
         }
     }
 
     if (failures.length > 0) {
         sections.push('### 未能抓取的来源');
         for (const item of failures) {
-            sections.push(`- ${item.company}（${item.url}，${item.fetchMode}）：${item.error || '来源不可访问'}`);
+            const title = item.label ? `${item.company} - ${item.label}` : item.company;
+            sections.push(`- ${title}（${item.url}，${item.fetchMode}）：${item.error || '来源不可访问'}`);
         }
     }
 
     return sections.join('\n\n');
 }
 
-async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetchResult> {
+async function fetchHtmlPortal(company: string, url: string, label?: string): Promise<CareerFetchResult> {
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -151,6 +194,7 @@ async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetc
         if (!response.ok) {
             return {
                 company,
+                label,
                 url,
                 status: 'failed',
                 fetchMode: 'html',
@@ -165,6 +209,7 @@ async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetc
         if (!excerpt || excerpt.length < 80) {
             return {
                 company,
+                label,
                 url,
                 status: 'failed',
                 fetchMode: 'html',
@@ -174,6 +219,7 @@ async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetc
 
         return {
             company,
+            label,
             url,
             status: 'success',
             fetchMode: 'html',
@@ -183,6 +229,7 @@ async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetc
         const message = error instanceof Error ? error.message : String(error);
         return {
             company,
+            label,
             url,
             status: 'failed',
             fetchMode: 'html',
@@ -191,7 +238,7 @@ async function fetchHtmlPortal(company: string, url: string): Promise<CareerFetc
     }
 }
 
-async function fetchPlaywrightPortal(company: string, url: string, waitMs: number): Promise<CareerFetchResult> {
+async function fetchPlaywrightPortal(company: string, url: string, waitMs: number, label?: string): Promise<CareerFetchResult> {
     try {
         const text = await fetchPageWithPlaywright(url, waitMs);
         const excerpt = text.slice(0, MAX_EXCERPT_CHARS);
@@ -199,6 +246,7 @@ async function fetchPlaywrightPortal(company: string, url: string, waitMs: numbe
         if (!excerpt || excerpt.length < 80) {
             return {
                 company,
+                label,
                 url,
                 status: 'failed',
                 fetchMode: 'playwright',
@@ -208,6 +256,7 @@ async function fetchPlaywrightPortal(company: string, url: string, waitMs: numbe
 
         return {
             company,
+            label,
             url,
             status: 'success',
             fetchMode: 'playwright',
@@ -217,6 +266,7 @@ async function fetchPlaywrightPortal(company: string, url: string, waitMs: numbe
         const message = error instanceof Error ? error.message : String(error);
         return {
             company,
+            label,
             url,
             status: 'failed',
             fetchMode: 'playwright',
