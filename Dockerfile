@@ -1,5 +1,4 @@
-# ===== 构建阶段 =====
-FROM node:20-alpine AS builder
+FROM daocloud.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +12,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
-FROM node:20-alpine AS runner
+FROM daocloud.io/library/node:20-alpine AS runner
 
 WORKDIR /app
 
