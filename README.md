@@ -160,6 +160,103 @@ UVX_COMMAND=/mnt/d/Python38/Scripts/uvx.exe
 pnpm dev
 ```
 
+## 部署到阿里云（ECS + Nginx + HTTPS）
+
+本项目已内置 ECS 生产部署能力，支持 Nginx 反向代理、Let's Encrypt HTTPS 与 GitHub Actions 自动发布。
+
+### 1. 准备 ECS 与域名
+
+- 购买 Linux ECS（建议 Ubuntu 22.04 或 Alibaba Cloud Linux 3）。
+- 安全组放行端口：`22`、`80`、`443`。
+- 将域名 A 记录指向 ECS 公网 IP（例如 `agent.example.com`）。
+- 安装 Docker 与 Docker Compose。
+
+### 2. 首次在 ECS 部署（HTTP）
+
+```bash
+git clone <your_repo_url>
+cd llm-mcp-rag
+cp deploy/aliyun/.env.prod.example deploy/aliyun/.env.prod
+```
+
+编辑 `deploy/aliyun/.env.prod`，填入生产环境变量（`OPENAI_API_KEY`、`EMBEDDING_KEY` 等）。
+
+构建并推送镜像到 ACR（也可后续由 GitHub Actions 自动完成）：
+
+```bash
+docker build -t registry.cn-hangzhou.aliyuncs.com/<namespace>/ai-job-agent:latest .
+docker login --username=<acr_username> registry.cn-hangzhou.aliyuncs.com
+docker push registry.cn-hangzhou.aliyuncs.com/<namespace>/ai-job-agent:latest
+```
+
+启动 Nginx + 应用：
+
+```bash
+bash deploy/aliyun/deploy-nginx.sh registry.cn-hangzhou.aliyuncs.com/<namespace>/ai-job-agent:latest agent.example.com
+```
+
+### 3. 启用 HTTPS 证书
+
+确认域名已解析到 ECS 后执行：
+
+```bash
+bash deploy/aliyun/enable-https.sh agent.example.com ops@example.com
+```
+
+执行完成后访问：
+
+```bash
+https://agent.example.com
+```
+
+### 4. 配置证书自动续期
+
+在 ECS 上添加 `crontab`（每天凌晨 3 点）：
+
+```bash
+crontab -e
+```
+
+```cron
+0 3 * * * cd /path/to/llm-mcp-rag && bash deploy/aliyun/renew-cert.sh >> /var/log/ai-job-agent-cert-renew.log 2>&1
+```
+
+### 5. 配置 GitHub Actions 自动发布到 ECS
+
+仓库已提供工作流：`.github/workflows/deploy-aliyun-ecs.yml`  
+触发方式：`push main` 或手动 `workflow_dispatch`。
+
+请在 GitHub 仓库 Secrets 中配置：
+
+- `ACR_REGISTRY`：如 `registry.cn-hangzhou.aliyuncs.com`
+- `ACR_REPO`：如 `<namespace>/ai-job-agent`
+- `ACR_USERNAME`：ACR 用户名
+- `ACR_PASSWORD`：ACR 密码
+- `ECS_HOST`：ECS 公网 IP
+- `ECS_PORT`：SSH 端口（默认 `22`）
+- `ECS_USER`：SSH 用户（如 `root`）
+- `ECS_SSH_KEY`：私钥内容（PEM）
+- `ECS_PROJECT_DIR`：ECS 项目绝对路径（如 `/root/llm-mcp-rag`）
+- `ECS_DOMAIN`：部署域名（如 `agent.example.com`）
+
+工作流流程：
+
+1. 构建镜像并推送到 ACR（`latest` + `sha` 标签）。
+2. SSH 登录 ECS，`git pull` 最新代码。
+3. 执行 `deploy/aliyun/deploy-nginx.sh` 拉起新镜像并热更新容器。
+
+### 已提供的阿里云部署文件
+
+- `deploy/aliyun/docker-compose.ecs.yml`：单容器部署（无 Nginx）编排文件。
+- `deploy/aliyun/deploy-ecs.sh`：单容器部署脚本。
+- `deploy/aliyun/docker-compose.nginx.yml`：Nginx + 应用双容器编排文件。
+- `deploy/aliyun/nginx/http.conf.template`：HTTP 配置模板。
+- `deploy/aliyun/nginx/https.conf.template`：HTTPS 配置模板。
+- `deploy/aliyun/deploy-nginx.sh`：按域名部署并自动选择 HTTP/HTTPS 配置。
+- `deploy/aliyun/enable-https.sh`：申请证书并切换 HTTPS。
+- `deploy/aliyun/renew-cert.sh`：证书续期脚本。
+- `deploy/aliyun/.env.prod.example`：生产环境变量模板。
+
 构建：
 
 ```bash

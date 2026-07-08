@@ -4,7 +4,12 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.prod
+deploy/aliyun/.env.prod
 .vscode
 node_modules
 dist
 .venv-tools
+deploy/aliyun/output/
+deploy/aliyun/certbot/
+deploy/aliyun/nginx/default.conf

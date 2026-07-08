@@ -1,0 +1,51 @@
+name: Build Push and Deploy to Aliyun ECS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
+  ACR_REPO: ${{ secrets.ACR_REPO }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_REPO }}:latest
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_REPO }}:${{ github.sha }}
+
+      - name: Deploy to ECS with SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE: ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_REPO }}:${{ github.sha }}
+          DOMAIN: ${{ secrets.ECS_DOMAIN }}
+        with:
+          host: ${{ secrets.ECS_HOST }}
+          username: ${{ secrets.ECS_USER }}
+          key: ${{ secrets.ECS_SSH_KEY }}
+          port: ${{ secrets.ECS_PORT || 22 }}
+          envs: IMAGE,DOMAIN
+          script: |
+            set -e
+            cd ${{ secrets.ECS_PROJECT_DIR }}
+            git pull --ff-only
+            docker login --username="${{ secrets.ACR_USERNAME }}" --password="${{ secrets.ACR_PASSWORD }}" "${{ secrets.ACR_REGISTRY }}"
+            bash deploy/aliyun/deploy-nginx.sh "${IMAGE}" "${DOMAIN}"

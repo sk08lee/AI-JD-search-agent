@@ -1,0 +1,11 @@
+services:
+  ai-job-agent:
+    image: ${IMAGE}
+    container_name: ai-job-agent
+    restart: always
+    env_file:
+      - .env.prod
+    ports:
+      - "${HOST_PORT:-9000}:9000"
+    volumes:
+      - ./output:/app/output
