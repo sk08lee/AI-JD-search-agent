@@ -56,13 +56,13 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
     const reportPath = path.join(outPath, reportFileName);
 
     const ragContext = await retrieveContext(template.knowledgeBaseDir);
-    const careerResults = await fetchCareerPortalPages(searchTarget);
-    const webContext = formatCareerFetchContext(careerResults);
+    const careerResults = await fetchCareerPortalPages({ jobTitle, jobCategory: category });
+    const webContext = formatCareerFetchContext(careerResults, jobTitle, category);
     const context = [ragContext, webContext].filter(Boolean).join('\n\n---\n\n');
 
     if (careerResults.length > 0) {
         const successCount = careerResults.filter((item) => item.status === 'success').length;
-        console.log(`[CareerFetch] fetched ${successCount}/${careerResults.length} career portal pages for "${searchTarget}"`);
+        console.log(`[CareerFetch] keyword="${jobTitle}" fetched ${successCount}/${careerResults.length} career portal pages`);
     }
 
     const model = config.llm.model;

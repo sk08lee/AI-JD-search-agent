@@ -260,9 +260,13 @@ crontab -e
 ```bash
 ENABLE_AUTO_CAREER_FETCH=1
 CAREER_FETCH_MAX_SOURCES=8
+ENABLE_PLAYWRIGHT_FETCH=1
 ```
 
-说明：该能力只抓取公开官网页面，不绕过 BOSS/拉勾等平台的登录或反爬限制。
+说明：
+- 搜索关键词仅使用“具体岗位名称”（如 `Java后端开发`），不会拼接岗位类型前缀。
+- 字节、腾讯、阿里、美团等动态招聘页会通过 Playwright 渲染后再抓取。
+- 该能力只抓取公开官网页面，不绕过 BOSS/拉勾等平台的登录或反爬限制。
 
 ### 已提供的阿里云部署文件
 
