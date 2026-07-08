@@ -36,15 +36,28 @@ async function handleApiGenerate(req: http.IncomingMessage, res: http.ServerResp
 
     req.on('end', async () => {
         try {
-            const { taskId, jobTitle } = JSON.parse(body);
-            
-            if (!taskId || !jobTitle) {
+            const { taskId, jobTitle, jobCategory } = JSON.parse(body);
+
+            if (!jobTitle) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, message: 'taskId and jobTitle are required' }));
+                res.end(JSON.stringify({ success: false, message: 'jobTitle is required' }));
                 return;
             }
 
-            const report = await generateReport(taskId, jobTitle);
+            const resolvedTaskId = taskId || 'custom';
+            const resolvedCategory = typeof jobCategory === 'string' ? jobCategory.trim() : '';
+
+            if (resolvedTaskId === 'custom' && !resolvedCategory) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'jobCategory is required' }));
+                return;
+            }
+
+            const report = await generateReport(
+                resolvedTaskId,
+                jobTitle,
+                resolvedCategory || undefined
+            );
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, content: report }));
         } catch (error) {

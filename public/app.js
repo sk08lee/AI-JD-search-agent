@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const taskSelect = document.getElementById('task-select');
+    const jobCategoryInput = document.getElementById('job-category');
     const jobTitleInput = document.getElementById('job-title');
     const generateBtn = document.getElementById('generate-btn');
     const outputSection = document.getElementById('output-section');
@@ -10,21 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSpinner = document.querySelector('.btn-spinner');
 
     const API_BASE = '';
-
-    const tasks = [
-        { id: 'ai-product-manager', name: 'AI 产品经理', description: '搜索 AI 产品经理相关岗位需求' },
-        { id: 'software-engineer', name: '软件工程师', description: '搜索软件工程师相关岗位需求' },
-        { id: 'data-analyst', name: '数据分析', description: '搜索数据分析相关岗位需求' }
-    ];
-
-    function loadTasks() {
-        tasks.forEach(task => {
-            const option = document.createElement('option');
-            option.value = task.id;
-            option.textContent = `${task.name} - ${task.description}`;
-            taskSelect.appendChild(option);
-        });
-    }
 
     function showLoading() {
         loading.style.display = 'block';
@@ -64,14 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function generateMockReport(taskId, jobTitle) {
-        return `# ${jobTitle}岗位需求报告
+    function generateMockReport(jobCategory, jobTitle) {
+        return `# ${jobCategory} · ${jobTitle} 岗位需求报告
 
 > 生成说明：本报告由前端模拟生成。完整功能需要部署后端服务。
 
 ## 1. 岗位搜索概览
 
-本次搜索面向计算机专业研究生，目标岗位为${jobTitle}。
+本次搜索面向计算机专业研究生，目标岗位类型为 ${jobCategory}，具体岗位为 ${jobTitle}。
 
 ## 2. 实习 / 校招 / 社招岗位差异
 
@@ -103,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 ## 4. 高频技术关键词
 
-根据岗位类型有所不同，通常包括数据结构、算法、数据库、网络等基础技能。
+根据 ${jobCategory} 岗位类型有所不同，通常包括数据结构、算法、数据库、网络等基础技能。
 
 ## 5. 常见项目经历要求
 
@@ -121,22 +106,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 - 当前模式：前端演示模式。
 - 完整功能：需要配置 LLM API 密钥并部署后端服务。
-
-## 部署说明
-
-要使用完整功能，请：
-1. 配置 .env 文件中的 API 密钥
-2. 使用 pnpm dev 运行后端服务
-3. 或部署到 Vercel、Render 等平台
 `;
     }
 
     generateBtn.addEventListener('click', async () => {
-        const taskId = taskSelect.value;
+        const jobCategory = jobCategoryInput.value.trim();
         const jobTitle = jobTitleInput.value.trim();
 
-        if (!taskId) {
-            alert('请选择岗位类型');
+        if (!jobCategory) {
+            alert('请输入岗位类型');
             return;
         }
 
@@ -147,21 +125,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showLoading();
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
         try {
             const response = await fetch(`${API_BASE}/api/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ taskId, jobTitle })
+                body: JSON.stringify({
+                    taskId: 'custom',
+                    jobCategory,
+                    jobTitle
+                })
             });
 
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
                     showOutput(data.content);
+                    hideLoading();
                     return;
                 }
             }
@@ -169,11 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('API unavailable, using mock data');
         }
 
-        showOutput(generateMockReport(taskId, jobTitle));
+        showOutput(generateMockReport(jobCategory, jobTitle));
         hideLoading();
     });
 
     copyBtn.addEventListener('click', copyToClipboard);
-
-    loadTasks();
 });

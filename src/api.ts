@@ -12,18 +12,21 @@ const config = loadConfig();
 const outPath = path.join(process.cwd(), config.output.directory);
 const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 
-export async function generateReport(taskId: string, jobTitle: string): Promise<string> {
+export async function generateReport(taskId: string, jobTitle: string, jobCategory?: string): Promise<string> {
     fs.mkdirSync(outPath, { recursive: true });
+
+    const category = jobCategory?.trim() || jobTitle;
+    const searchTarget = jobCategory ? `${jobCategory} · ${jobTitle}` : jobTitle;
 
     const template = taskTemplates[taskId] || {
         id: 'custom',
-        name: `${jobTitle}岗位搜索`,
-        description: `搜索 ${jobTitle} 岗位需求`,
+        name: `${searchTarget}岗位搜索`,
+        description: `搜索 ${searchTarget} 岗位需求`,
         systemPrompt: `你是一个严谨的求职研究助手。你需要区分事实、推断和建议。
 涉及岗位信息时，优先引用公开来源或本地知识库内容；如果信息不足，明确提醒用户补充来源。`,
-        userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobTitle} 相关岗位。
+        userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobCategory} 相关岗位，具体目标岗位为 {jobTitle}。
 
-请优先结合我提供的本地 context，并在 fetch 工具可用时读取公开可访问的公司招聘官网或公开招聘页面，整理"{jobTitle}"相关岗位需求。
+请优先结合我提供的本地 context，并在 fetch 工具可用时读取公开可访问的公司招聘官网或公开招聘页面，整理"{searchTarget}"相关岗位需求。
 
 请把岗位按三类组织：
 1. 实习 internship
@@ -69,13 +72,15 @@ export async function generateReport(taskId: string, jobTitle: string): Promise<
     try {
         await agent.init();
         const userPrompt = template.userPrompt
-            .replace('{jobTitle}', jobTitle)
+            .replace(/\{jobCategory\}/g, category)
+            .replace(/\{jobTitle\}/g, jobTitle)
+            .replace(/\{searchTarget\}/g, searchTarget)
             .replace('{reportPath}', reportPath);
         response = await agent.invoke(userPrompt);
     } catch (e: any) {
         console.warn(`[LLM degraded] ${sanitizeErrorMessage(e)}`);
         const reportTemplate = getReportTemplate(template.reportTemplate);
-        response = reportTemplate?.fallback(context, e, jobTitle) || buildGenericFallbackReport(context, e, jobTitle);
+        response = reportTemplate?.fallback(context, e, searchTarget) || buildGenericFallbackReport(context, e, searchTarget, category);
     } finally {
         await agent.close();
     }
@@ -132,15 +137,19 @@ function collectMarkdownFiles(dir: string): string[] {
     });
 }
 
-function buildGenericFallbackReport(context: string, error: unknown, jobTitle: string): string {
+function buildGenericFallbackReport(context: string, error: unknown, jobTitle: string, jobCategory?: string): string {
     const message = sanitizeErrorMessage(error);
+    const categoryLine = jobCategory && jobCategory !== jobTitle
+        ? `目标岗位类型为 ${jobCategory}，具体岗位为 ${jobTitle}。`
+        : `目标岗位为 ${jobTitle}。`;
+
     return `# ${jobTitle}岗位需求报告
 
 > 生成说明：LLM 调用失败，以下报告由本地岗位知识库降级生成。失败原因：${message}
 
 ## 1. 岗位搜索概览
 
-本次搜索面向计算机专业研究生，目标岗位为${jobTitle}。由于在线 LLM 接口不可用，本报告仅基于本地 RAG 召回内容生成。
+本次搜索面向计算机专业研究生，${categoryLine}由于在线 LLM 接口不可用，本报告仅基于本地 RAG 召回内容生成。
 
 ## 2. 实习 / 校招 / 社招岗位差异
 
