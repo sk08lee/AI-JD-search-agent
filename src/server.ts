@@ -1,55 +1,107 @@
-import express from 'express';
-import cors from 'cors';
+import http from 'http';
+import fs from 'fs';
 import path from 'path';
 import { generateReport, listTasks } from './api.js';
-import { loadConfig } from './config/index.js';
 
-const app = express();
-const config = loadConfig();
 const PORT = process.env.PORT || 3000;
+const publicDir = path.join(process.cwd(), 'public');
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(process.cwd(), 'public')));
+const mimeTypes: Record<string, string> = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon'
+};
 
-app.get('/api/tasks', (req, res) => {
-    try {
-        const tasks = listTasks();
-        res.json({ success: true, data: tasks });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to list tasks' });
-    }
-});
+function getContentType(filePath: string): string {
+    const ext = path.extname(filePath);
+    return mimeTypes[ext] || 'application/octet-stream';
+}
 
-app.post('/api/generate', async (req, res) => {
-    const { taskId, jobTitle } = req.body;
+async function handleApiTasks(req: http.IncomingMessage, res: http.ServerResponse) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const tasks = listTasks();
+    res.end(JSON.stringify({ success: true, data: tasks }));
+}
+
+async function handleApiGenerate(req: http.IncomingMessage, res: http.ServerResponse) {
+    let body = '';
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+        try {
+            const { taskId, jobTitle } = JSON.parse(body);
+            
+            if (!taskId || !jobTitle) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: 'taskId and jobTitle are required' }));
+                return;
+            }
+
+            const report = await generateReport(taskId, jobTitle);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, content: report }));
+        } catch (error) {
+            console.error('Generate report error:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Failed to generate report' }));
+        }
+    });
+}
+
+function handleStatic(req: http.IncomingMessage, res: http.ServerResponse) {
+    const url = req.url || '/';
+    let filePath = path.join(publicDir, url === '/' ? 'index.html' : url);
     
-    if (!taskId || !jobTitle) {
-        return res.status(400).json({ success: false, message: 'taskId and jobTitle are required' });
-    }
+    fs.stat(filePath, (err, stats) => {
+        if (err || !stats?.isFile()) {
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found');
+            return;
+        }
 
-    try {
-        res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('500 Internal Server Error');
+                return;
+            }
+
+            res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+            res.end(content);
         });
+    });
+}
 
-        const report = await generateReport(taskId, jobTitle);
-        
-        res.write(`data: ${JSON.stringify({ success: true, content: report })}\n\n`);
+const server = http.createServer(async (req, res) => {
+    const url = req.url || '/';
+    const method = req.method || 'GET';
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (method === 'OPTIONS') {
+        res.writeHead(200);
         res.end();
-    } catch (error) {
-        console.error('Generate report error:', error);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, message: 'Failed to generate report' }));
+        return;
+    }
+
+    if (url === '/api/tasks' && method === 'GET') {
+        await handleApiTasks(req, res);
+    } else if (url === '/api/generate' && method === 'POST') {
+        await handleApiGenerate(req, res);
+    } else {
+        handleStatic(req, res);
     }
 });
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });

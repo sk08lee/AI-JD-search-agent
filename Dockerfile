@@ -1,10 +1,16 @@
 # ===== 构建阶段 =====
-FROM node:20-alpine AS builder
+FROM registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine AS builder
 
 WORKDIR /app
 
+# 设置 npm 镜像源
+RUN npm config set registry https://registry.npmmirror.com
+
 # 安装 pnpm
 RUN npm install -g pnpm@10.6.3
+
+# 设置 pnpm 镜像源
+RUN pnpm config set registry https://registry.npmmirror.com
 
 # 复制依赖文件
 COPY package.json pnpm-lock.yaml ./
@@ -19,12 +25,18 @@ COPY . .
 RUN pnpm build
 
 # ===== 运行阶段 =====
-FROM node:20-alpine AS runner
+FROM registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine AS runner
 
 WORKDIR /app
 
+# 设置 npm 镜像源
+RUN npm config set registry https://registry.npmmirror.com
+
 # 安装 pnpm（用于生产依赖安装）
 RUN npm install -g pnpm@10.6.3
+
+# 设置 pnpm 镜像源
+RUN pnpm config set registry https://registry.npmmirror.com
 
 # 复制 package 文件
 COPY package.json pnpm-lock.yaml ./
