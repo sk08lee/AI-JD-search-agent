@@ -30,7 +30,7 @@ export interface CareerFetchResult {
     error?: string;
 }
 
-const DEFAULT_MAX_SOURCES = 16;
+const DEFAULT_MAX_SOURCES = 10;
 
 export function loadCareerPortals(): CareerPortal[] {
     const filePath = path.join(process.cwd(), 'knowledge', 'sources', 'career_portals.json');

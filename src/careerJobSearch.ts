@@ -76,8 +76,8 @@ function normalizeSearchConfig(search?: PortalSearchConfig): Required<PortalSear
         submitSelector: search?.submitSelector || '',
         resultsSelector: search?.resultsSelector || '',
         detailLinkPatterns: search?.detailLinkPatterns?.length ? search.detailLinkPatterns : DEFAULT_DETAIL_PATTERNS,
-        maxResults: search?.maxResults || Number(process.env.CAREER_JOB_MAX_RESULTS || 5),
-        maxDetailPages: search?.maxDetailPages || Number(process.env.CAREER_JOB_MAX_DETAIL_PAGES || 3)
+        maxResults: search?.maxResults || Number(process.env.CAREER_JOB_MAX_RESULTS || 3),
+        maxDetailPages: search?.maxDetailPages || Number(process.env.CAREER_JOB_MAX_DETAIL_PAGES || 2)
     };
 }
 
