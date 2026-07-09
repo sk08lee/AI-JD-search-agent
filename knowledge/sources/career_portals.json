@@ -1,7 +1,7 @@
 [
   {
-    "company": "????",
-    "label": "????",
+    "company": "字节跳动",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://jobs.bytedance.com/campus",
     "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}",
@@ -18,15 +18,15 @@
     }
   },
   {
-    "company": "??",
-    "label": "????",
+    "company": "腾讯",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://join.qq.com/post.html?query=p_2",
     "searchUrl": "https://join.qq.com/post.html?query={keyword}",
     "fetchMode": "playwright",
     "waitMs": 10000,
     "search": {
-      "inputSelector": "input[type='search'], input[placeholder*='??'], input[placeholder*='??']",
+      "inputSelector": "input[type='search'], input[placeholder*='搜索'], input[placeholder*='岗位']",
       "waitForSelector": "[class*='post'], [class*='job-list'], [class*='position']",
       "listLinkSelector": "a[href*='post_detail.html'], a[href*='postid='], a[href*='postId=']",
       "detailLinkPatterns": ["post_detail.html", "postid=", "postId="],
@@ -38,8 +38,8 @@
     }
   },
   {
-    "company": "????",
-    "label": "????",
+    "company": "阿里巴巴",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002",
     "searchUrl": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002&keywords={keyword}",
@@ -57,15 +57,15 @@
     }
   },
   {
-    "company": "??",
-    "label": "????",
+    "company": "美团",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://zhaopin.meituan.com/web/home",
     "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
     "waitMs": 10000,
     "search": {
-      "inputSelector": "input[placeholder*='??'], input[type='search']",
+      "inputSelector": "input[placeholder*='搜索'], input[type='search']",
       "waitForSelector": "[class*='job-list'], [class*='position-list'], a[href*='/web/position/detail']",
       "listLinkSelector": "a[href*='/web/position/detail'], a[href*='jobUnionId=']",
       "detailLinkPatterns": ["/web/position/detail", "jobUnionId="],
@@ -77,8 +77,8 @@
     }
   },
   {
-    "company": "??",
-    "label": "?????",
+    "company": "百度",
+    "label": "实习生招聘",
     "channel": "internship",
     "url": "https://talent.baidu.com/jobs/list",
     "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}",
@@ -95,8 +95,8 @@
     }
   },
   {
-    "company": "??",
-    "label": "?????",
+    "company": "华为",
+    "label": "实习生招聘",
     "channel": "internship",
     "url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
     "searchUrl": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN&keyword={keyword}",
@@ -111,15 +111,15 @@
     }
   },
   {
-    "company": "??",
-    "label": "????",
+    "company": "京东",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://campus.jd.com/#/jobs",
     "searchUrl": "https://campus.jd.com/#/jobs?keyword={keyword}",
     "fetchMode": "playwright",
     "waitMs": 12000,
     "search": {
-      "inputSelector": "input[placeholder*='??'], input[type='search']",
+      "inputSelector": "input[placeholder*='搜索'], input[type='search']",
       "waitForSelector": "[class*='job-list'], [class*='job-card'], a[href*='jobDetail']",
       "listLinkSelector": "a[href*='jobDetail'], a[href*='#/jobDetail'], a[href*='#/job/detail']",
       "detailLinkPatterns": ["jobDetail", "#/jobDetail", "#/job/detail", "reqId="],
@@ -131,8 +131,8 @@
     }
   },
   {
-    "company": "??",
-    "label": "????",
+    "company": "网易",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://hr.163.com/job-list.html?workType=1",
     "searchUrl": "https://hr.163.com/job-list.html?workType=1&keyword={keyword}",
@@ -147,8 +147,8 @@
     }
   },
   {
-    "company": "??",
-    "label": "????",
+    "company": "小米",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://xiaomi.jobs.f.mioffice.cn/internship/?spread=6AA3R7B",
     "searchUrl": "https://xiaomi.jobs.f.mioffice.cn/internship/?spread=6AA3R7B&keyword={keyword}",
@@ -164,8 +164,8 @@
     }
   },
   {
-    "company": "????",
-    "label": "????",
+    "company": "商汤科技",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://hr.sensetime.com/edu/",
     "searchUrl": "https://hr.sensetime.com/edu/?keyword={keyword}",
@@ -179,8 +179,8 @@
     }
   },
   {
-    "company": "????",
-    "label": "????",
+    "company": "科大讯飞",
+    "label": "日常实习",
     "channel": "internship",
     "url": "https://iflytek.zhiye.com/intern/jobs",
     "searchUrl": "https://iflytek.zhiye.com/intern/jobs?keyword={keyword}",
