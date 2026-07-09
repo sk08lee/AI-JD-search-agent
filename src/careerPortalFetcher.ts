@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { attachStructuredJobFields, isValidJobListing } from './careerJobFields.js';
 import { buildValidationOptions } from './careerJobValidation.js';
+import { matchesJobKeyword } from './careerKeywordMatch.js';
 import {
     dedupeJobsGlobally,
     formatJobListings,
@@ -134,6 +135,7 @@ export function aggregateCareerResults(results: CareerFetchResult[], keyword: st
         const validJobs = result.jobs
             .map(attachStructuredJobFields)
             .filter((job) => isValidJobListing(job, validation))
+            .filter((job) => matchesJobKeyword(`${job.title} ${job.summary} ${job.requirements || ''}`, keyword))
             .map((job) => ({
                 ...job,
                 company: job.company || result.company,

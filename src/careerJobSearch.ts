@@ -6,6 +6,10 @@ import {
     isLikelyJobLink,
     type JobListingValidationOptions
 } from './careerJobValidation.js';
+import {
+    matchesJobKeyword,
+    scoreJobKeywordMatch
+} from './careerKeywordMatch.js';
 import { isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
 
 export interface PortalSearchConfig {
@@ -109,9 +113,7 @@ export function formatJobListings(
 }
 
 export function scoreKeywordMatchText(text: string, keyword: string): number {
-    return keywordTokens(keyword).reduce((score, token) => {
-        return score + (text.toLowerCase().includes(token.toLowerCase()) ? 1 : 0);
-    }, 0);
+    return scoreJobKeywordMatch(text, keyword);
 }
 
 export function dedupeJobsGlobally(
@@ -427,45 +429,15 @@ function dedupeJobCandidates(
     }
 
     const ranked = filtered.sort((a, b) => scoreKeywordMatch(b, keyword) - scoreKeywordMatch(a, keyword));
-    if (ranked.length > 0) {
-        return ranked.slice(0, config.maxResults);
-    }
-
-    const fallback: CareerJobListing[] = [];
-    for (const candidate of candidates) {
-        const key = candidate.detailUrl.split('?')[0];
-        if (seen.has(key)) continue;
-        if (!isLikelyJobLink(candidate.title, candidate.detailUrl, config.validation)) continue;
-        seen.add(key);
-        fallback.push(candidate);
-        if (fallback.length >= config.maxResults) break;
-    }
-
-    return fallback;
+    return ranked.slice(0, config.maxResults);
 }
 
 function matchesKeyword(text: string, keyword: string): boolean {
-    const normalized = text.toLowerCase();
-    const target = keyword.toLowerCase();
-    if (normalized.includes(target)) return true;
-
-    const tokens = keywordTokens(keyword);
-    if (tokens.length === 0) return false;
-
-    const hits = tokens.filter((token) => normalized.includes(token.toLowerCase())).length;
-    return hits >= Math.max(1, Math.ceil(tokens.length * 0.5));
+    return matchesJobKeyword(text, keyword);
 }
 
 function scoreKeywordMatch(candidate: CareerJobListing, keyword: string): number {
-    return scoreKeywordMatchText(`${candidate.title} ${candidate.summary}`, keyword);
-}
-
-function keywordTokens(keyword: string): string[] {
-    const split = keyword.split(/[\s·\-_/|+]+/).map((part) => part.trim()).filter(Boolean);
-    if (split.length > 0) return split;
-
-    const chineseParts = keyword.match(/[\u4e00-\u9fa5]{2,}|[a-zA-Z0-9]+/g) || [];
-    return chineseParts.length > 0 ? chineseParts : [keyword];
+    return scoreJobKeywordMatch(`${candidate.title} ${candidate.summary}`, keyword);
 }
 
 function resolveUrl(href: string, baseUrl: string): string {
