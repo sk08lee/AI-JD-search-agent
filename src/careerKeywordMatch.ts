@@ -50,7 +50,7 @@ export function matchesJobKeywordAtListStage(
     keyword: string,
     options?: { listSearchKeyword?: string; matchKeywordOnDetailOnly?: boolean }
 ): boolean {
-    if (options?.matchKeywordOnDetailOnly) {
+    if (options?.matchKeywordOnDetailOnly && options.listSearchKeyword?.trim()) {
         const listKeyword = getListSearchKeyword(keyword, options.listSearchKeyword);
         return matchesJobKeyword(text, listKeyword);
     }

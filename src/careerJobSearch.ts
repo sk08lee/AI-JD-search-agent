@@ -279,9 +279,9 @@ async function searchJobsWithHtml(
 }
 
 async function tryInteractiveSearch(page: Page, keyword: string, config: ReturnType<typeof normalizeSearchConfig>): Promise<boolean> {
-    const searchText = config.matchKeywordOnDetailOnly || config.listSearchKeyword
+    const searchText = config.listSearchKeyword?.trim()
         ? getListSearchKeyword(keyword, config.listSearchKeyword)
-        : keyword;
+        : keyword.trim();
 
     if (config.inputSelector) {
         const input = page.locator(config.inputSelector).first();
@@ -466,7 +466,7 @@ async function enrichJobsWithDetailPages(
                 .trim();
 
             const mergedText = `${candidate.title} ${detailText}`;
-            if (config.matchKeywordOnDetailOnly && !matchesPortalJobKeyword(mergedText, keyword, config)) {
+            if (!matchesPortalJobKeyword(mergedText, keyword, config)) {
                 continue;
             }
 
@@ -480,13 +480,11 @@ async function enrichJobsWithDetailPages(
                 detailExcerpt: detailText.slice(0, 2400)
             }));
         } catch {
-            if (!config.matchKeywordOnDetailOnly) {
-                enriched.push(attachStructuredJobFields({
-                    ...candidate,
-                    company: candidate.company || company,
-                    sourceLabel: candidate.sourceLabel || sourceLabel
-                }));
-            }
+            enriched.push(attachStructuredJobFields({
+                ...candidate,
+                company: candidate.company || company,
+                sourceLabel: candidate.sourceLabel || sourceLabel
+            }));
         }
     }
 

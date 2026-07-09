@@ -48,7 +48,7 @@ export async function fetchJobsWithAgentFallback(options: AgentFallbackOptions):
     const config = loadConfig();
     const uvxCommand = resolveUvxCommand();
     const fetchMCP = new MCPClient('mcp-server-fetch', uvxCommand, ['mcp-server-fetch']);
-    const listKeyword = getListSearchKeyword(options.keyword, options.search?.listSearchKeyword);
+    const listKeyword = options.search?.listSearchKeyword?.trim() || options.keyword.trim();
     const maxJobs = Number(process.env.CAREER_JOB_MAX_RESULTS || 5);
     const htmlMaxChars = Number(process.env.CAREER_AGENT_HTML_MAX_CHARS || 12000);
     const pageHtmlSnippet = options.pageHtml?.slice(0, htmlMaxChars) || '';
@@ -88,7 +88,7 @@ function buildAgentFallbackPrompt(input: AgentFallbackOptions & {
     const lines = [
         `公司：${input.company}`,
         `搜索关键词：${input.keyword}`,
-        `列表搜索词：${input.listKeyword}`,
+        `列表搜索词：${input.listKeyword}（与用户输入岗位名一致）`,
         `实习入口：${input.landingUrl}`,
         `搜索页：${input.searchUrl}`,
         `最多返回 ${input.maxJobs} 条有效实习岗位。`,
