@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideLoading() {
         loading.style.display = 'none';
         generateBtn.disabled = false;
-        btnText.textContent = '生成岗位需求报告';
+        btnText.textContent = '生成实习岗位需求报告';
         btnSpinner.style.display = 'none';
     }
 
@@ -87,35 +87,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function generateMockReport(jobCategory, jobTitle) {
-        return `# ${jobTitle} 岗位需求报告
+        const category = jobCategory || '实习';
+        return `# ${jobTitle} 实习岗位需求报告
 
 > 生成说明：本报告由前端模拟生成。完整功能需要部署后端服务。
 
-## 1. 岗位搜索概览
+## 一、公开招聘官网实习岗位（招聘条件）
 
-本次搜索面向计算机专业研究生，岗位类型为「${jobCategory}」，具体岗位为「${jobTitle}」。
+（演示模式：请部署后端以抓取 11 家大厂实习官网）
 
-## 2. 实习 / 校招 / 社招岗位差异
+## 二、结合本地岗位知识库归纳（能力要求与求职洞察）
 
-### 实习 internship
+本次搜索面向计算机专业研究生，岗位方向为「${category}」，具体实习岗位为「${jobTitle}」。
+
+### 实习岗位特点
 
 - 更关注学习能力、基础能力、工具使用经验和项目实践。
 - 常见任务包括参与项目、文档整理和基础工作。
 - 具备相关技术基础或项目经历会加分。
 
-### 校招 campus
-
-- 更关注完整项目经历、技术理解能力和团队协作潜力。
-- 需要能独立完成任务、方案设计和问题排查。
-- 相关专业背景有优势。
-
-### 社招 experienced
-
-- 更关注业务落地、系统设计和领导力。
-- 需要理解复杂系统架构、技术选型和团队管理。
-- 通常要求有完整项目经验。
-
-## 3. 高频能力要求
+### 高频能力要求
 
 - 专业技能
 - 问题解决
@@ -123,23 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
 - 学习能力
 - 技术文档
 
-## 4. 高频技术关键词
-
-根据 ${jobCategory} 岗位类型有所不同，通常包括数据结构、算法、数据库、网络等基础技能。
-
-## 5. 常见项目经历要求
-
-- 有完整项目开发或实践经历。
-- 能说明技术方案如何解决实际问题。
-- 能输出技术文档和代码。
-
-## 6. 简历优化建议
+### 简历优化建议
 
 - 将项目经历转化为具体成果。
 - 强调技术深度和广度。
 - 突出"问题 - 方案 - 实现 - 优化"的完整思路。
 
-## 7. 信息来源
+## 信息来源
 
 - 当前模式：前端演示模式。
 - 完整功能：需要配置 LLM API 密钥并部署后端服务。
@@ -147,13 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateBtn.addEventListener('click', async () => {
-        const jobCategory = jobCategoryInput.value.trim();
+        const jobCategory = jobCategoryInput.value.trim() || '实习';
         const jobTitle = jobTitleInput.value.trim();
-
-        if (!jobCategory) {
-            alert('请输入岗位类型，例如：产品、技术');
-            return;
-        }
 
         if (!jobTitle) {
             alert('请输入具体岗位名称，例如：AI产品经理、Java后端开发');
