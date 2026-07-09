@@ -56,6 +56,7 @@ export interface PortalJobSearchResult {
     searchUrl: string;
     jobs: CareerJobListing[];
     pageSummary?: string;
+    pageHtml?: string;
     error?: string;
 }
 
@@ -219,11 +220,15 @@ async function searchJobsWithPlaywright(
         const candidates = await collectJobCandidatesFromPage(page, keyword, config, company);
         const jobs = await enrichJobsWithDetailPages(page, candidates, config, waitMs, keyword, company, sourceLabel);
         const pageSummary = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim().slice(0, 1200);
+        const pageHtml = jobs.length === 0
+            ? (await page.content()).slice(0, Number(process.env.CAREER_AGENT_HTML_MAX_CHARS || 12000))
+            : undefined;
 
         return {
             searchUrl: page.url(),
             jobs,
-            pageSummary
+            pageSummary,
+            pageHtml
         };
     });
 }

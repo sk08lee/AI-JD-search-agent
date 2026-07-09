@@ -11,6 +11,7 @@ import {
     type PortalSearchConfig
 } from './careerJobSearch.js';
 import { isPlaywrightFetchEnabled } from './playwrightFetcher.js';
+import { fetchJobsWithAgentFallback, isAgentFallbackEnabled } from './careerAgentFallback.js';
 
 export interface CareerPortal {
     company: string;
@@ -33,7 +34,7 @@ export interface CareerFetchResult {
     label?: string;
     url: string;
     status: 'success' | 'failed';
-    fetchMode: 'html' | 'playwright';
+    fetchMode: 'html' | 'playwright' | 'agent-fallback';
     jobs: CareerJobListing[];
     excerpt?: string;
     error?: string;
@@ -235,9 +236,16 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
 }
 
 async function searchPortal(target: CareerPortal & { targetUrl: string }, keyword: string): Promise<CareerFetchResult> {
-    const fetchMode = target.fetchMode || 'html';
+    const fetchMode = target.fetchMode === 'html' ? 'html' : 'playwright';
 
     if (fetchMode === 'playwright' && !isPlaywrightFetchEnabled()) {
+        const fallbackOnly = await tryAgentFallback(target, keyword, {
+            playwrightError: 'Playwright 抓取已关闭，无法进入动态招聘页搜索岗位'
+        });
+        if (fallbackOnly) {
+            return fallbackOnly;
+        }
+
         return {
             company: target.company,
             label: target.label,
@@ -261,6 +269,18 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             company: target.company,
             sourceLabel: target.label
         });
+
+        if (searchResult.jobs.length === 0) {
+            const fallbackResult = await tryAgentFallback(target, keyword, {
+                searchUrl: searchResult.searchUrl,
+                pageSummary: searchResult.pageSummary,
+                pageHtml: searchResult.pageHtml,
+                playwrightError: searchResult.error
+            });
+            if (fallbackResult) {
+                return fallbackResult;
+            }
+        }
 
         if (searchResult.error && searchResult.jobs.length === 0) {
             return {
@@ -287,6 +307,13 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        const fallbackResult = await tryAgentFallback(target, keyword, {
+            playwrightError: message
+        });
+        if (fallbackResult) {
+            return fallbackResult;
+        }
+
         return {
             company: target.company,
             label: target.label,
@@ -298,4 +325,50 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             error: message
         };
     }
+}
+
+async function tryAgentFallback(
+    target: CareerPortal & { targetUrl: string },
+    keyword: string,
+    context: {
+        searchUrl?: string;
+        pageSummary?: string;
+        pageHtml?: string;
+        playwrightError?: string;
+    }
+): Promise<CareerFetchResult | null> {
+    if (!isAgentFallbackEnabled()) {
+        return null;
+    }
+
+    console.log(`[CareerFetch] ${target.company} Playwright 无结果，尝试 Agent fallback...`);
+    const fallbackJobs = await fetchJobsWithAgentFallback({
+        company: target.company,
+        label: target.label,
+        keyword,
+        searchUrl: context.searchUrl || target.targetUrl,
+        landingUrl: target.url,
+        pageSummary: context.pageSummary,
+        pageHtml: context.pageHtml,
+        search: target.search,
+        sourceLabel: target.label,
+        playwrightError: context.playwrightError
+    });
+
+    if (fallbackJobs.length === 0) {
+        console.log(`[CareerFetch] ${target.company} Agent fallback 未找到有效岗位`);
+        return null;
+    }
+
+    console.log(`[CareerFetch] ${target.company} Agent fallback 找到 ${fallbackJobs.length} 条候选岗位`);
+    return {
+        company: target.company,
+        label: target.label,
+        url: context.searchUrl || target.targetUrl,
+        status: 'success',
+        fetchMode: 'agent-fallback',
+        jobs: fallbackJobs,
+        search: target.search,
+        excerpt: 'Agent fallback via Fetch MCP'
+    };
 }

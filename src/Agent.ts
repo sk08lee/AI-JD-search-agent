@@ -1,5 +1,5 @@
 import MCPClient from "./MCPClient.js";
-import ChatOpenAI from "./ChatOpenAI.js";
+import ChatOpenAI, { type ToolCall } from "./ChatOpenAI.js";
 import { logTitle } from "./utils.js";
 
 export default class Agent {
@@ -47,32 +47,49 @@ export default class Agent {
 
     async invoke(prompt: string) {
         if (!this.llm) throw new Error('Agent not initialized');
-        let response = await this.llm.chat(prompt);
-        while (true) {
-            if (response.toolCalls.length > 0) {
-                for (const toolCall of response.toolCalls) {
-                    const mcp = this.activeMcpClients.find(client => client.getTools().some((t: any) => t.name === toolCall.function.name));
-                    if (mcp) {
-                        logTitle(`TOOL USE`);
-                        console.log(`Calling tool: ${toolCall.function.name}`);
-                        console.log(`Arguments: ${toolCall.function.arguments}`);
-                        const argsRaw = toolCall.function.arguments ?? '';
-                        const args = this.safeParseToolArgs(argsRaw);
-                        this.normalizeToolArgs(toolCall.function.name, args);
-                        const result = await mcp.callTool(toolCall.function.name, args);
-                        console.log(`Result: ${JSON.stringify(result)}`);
-                        this.llm.appendToolResult(toolCall.id, JSON.stringify(result));
-                    } else {
-                        this.llm.appendToolResult(toolCall.id, 'Tool not found');
-                    }
-                }
-                // 工具调用后,继续对话
-                response = await this.llm.chat();
-                continue
+        let response = await this.invokeWithoutClose(prompt);
+        while (response.toolCalls.length > 0) {
+            response = await this.continueAfterTools(response);
+        }
+        await this.close();
+        return response.content;
+    }
+
+    async invokeWithoutClose(prompt: string): Promise<{ content: string; toolCalls: ToolCall[] }> {
+        if (!this.llm) throw new Error('Agent not initialized');
+        return this.llm.chat(prompt);
+    }
+
+    async continueAfterTools(previous: { toolCalls: ToolCall[] }): Promise<{ content: string; toolCalls: ToolCall[] }> {
+        if (!this.llm) throw new Error('Agent not initialized');
+        if (previous.toolCalls.length === 0) {
+            return { content: '', toolCalls: [] };
+        }
+
+        await this.executeToolCalls(previous.toolCalls);
+        return this.llm.chat();
+    }
+
+    private async executeToolCalls(toolCalls: ToolCall[]) {
+        if (!this.llm) throw new Error('Agent not initialized');
+
+        for (const toolCall of toolCalls) {
+            const mcp = this.activeMcpClients.find((client) =>
+                client.getTools().some((tool: { name: string }) => tool.name === toolCall.function.name)
+            );
+            if (mcp) {
+                logTitle('TOOL USE');
+                console.log(`Calling tool: ${toolCall.function.name}`);
+                console.log(`Arguments: ${toolCall.function.arguments}`);
+                const argsRaw = toolCall.function.arguments ?? '';
+                const args = this.safeParseToolArgs(argsRaw);
+                this.normalizeToolArgs(toolCall.function.name, args);
+                const result = await mcp.callTool(toolCall.function.name, args);
+                console.log(`Result: ${JSON.stringify(result).slice(0, 500)}`);
+                this.llm.appendToolResult(toolCall.id, JSON.stringify(result));
+            } else {
+                this.llm.appendToolResult(toolCall.id, 'Tool not found');
             }
-            // 没有工具调用,结束对话
-            await this.close();
-            return response.content;
         }
     }
 
@@ -82,7 +99,6 @@ export default class Agent {
         try {
             return JSON.parse(trimmed);
         } catch (e: any) {
-            // Some models emit non-JSON / partial JSON; don't hard-crash the agent.
             return { _raw: argsRaw, _parseError: String(e?.message ?? e) };
         }
     }
@@ -90,13 +106,10 @@ export default class Agent {
     private normalizeToolArgs(toolName: string, args: any) {
         if (!args || typeof args !== 'object') return;
 
-        // Filesystem MCP server typically expects paths relative to allowed roots.
-        // Models often emit absolute-ish paths like "/file.md" which become outside-root on Windows.
         if (typeof (args as any).path === 'string') {
             (args as any).path = (args as any).path.replace(/^[\/\\]+/, '');
         }
 
-        // Some tools use "source" / "destination" instead of "path". Normalize those too.
         for (const k of ['source', 'destination', 'from', 'to']) {
             if (typeof (args as any)[k] === 'string') {
                 (args as any)[k] = (args as any)[k].replace(/^[\/\\]+/, '');
