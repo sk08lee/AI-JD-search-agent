@@ -215,7 +215,7 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
         '## 自动检索的公开招聘官网实习岗位信息',
         categoryLine,
         `共检索到 ${totalJobs} 条实习岗位信息（全源去重后，仅展示匹配岗位数大于 0 的公司）。`,
-        '每个岗位仅保留：招聘条件 / 招聘要求 / 岗位要求。'
+        '每个岗位仅保留：招聘条件 / 招聘要求 / 岗位要求；且岗位名称须含「实习」。'
     ];
 
     for (const item of matchedSources) {

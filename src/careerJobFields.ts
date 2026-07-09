@@ -56,10 +56,9 @@ export function attachStructuredJobFields(job: CareerJobListing): CareerJobListi
     };
 }
 
-export function isExcludedNonInternJob(job: CareerJobListing): boolean {
-    const text = `${job.title} ${job.summary} ${job.requirements || ''} ${job.detailExcerpt || ''}`;
-    return /(?:^|\s)(?:社招|社会招聘|全职(?!.*实习)|\d+[-~]?\d*年(?:以上)?(?:工作)?经验|资深|专家岗|管理岗)/i.test(text)
-        || /校招(?!.*实习)/i.test(text);
+export function isInternshipJobTitle(title: string): boolean {
+    const normalized = cleanJobTitle(title) || title.replace(/\s+/g, ' ').trim();
+    return /实习/.test(normalized);
 }
 
 export function passesInternshipFilter(job: CareerJobListing): boolean {
@@ -67,7 +66,7 @@ export function passesInternshipFilter(job: CareerJobListing): boolean {
         return true;
     }
 
-    return !isExcludedNonInternJob(job);
+    return isInternshipJobTitle(job.title);
 }
 
 export function isValidJobListing(
