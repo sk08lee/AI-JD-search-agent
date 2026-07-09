@@ -1,15 +1,14 @@
 import type { CareerJobListing } from './careerJobSearch.js';
-
-const NOISE_TITLES = /^(首页|隐私政策|招聘动态|校园招聘|社会招聘|加入我们|关于我们|招聘职位|相关职位|投递)$/i;
-const NOISE_URL_PARTS = [/privacy/i, /rules-center/i, /#\/$/, /#\/news/i, /#\/jobs$/i, /javascript:/i];
-const VALID_DETAIL_URL = /\/detail|\/job\/|position\/\d+/i;
+import type { JobListingValidationOptions } from './careerJobValidation.js';
+import { isValidDetailUrl } from './careerJobValidation.js';
 
 const REQUIREMENT_SECTION_PATTERNS = [
-    /职位要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|展开地图|点击申请|立即申请|$)/i,
-    /任职要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|$)/i,
-    /岗位要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|$)/i,
-    /招聘条件[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|$)/i,
-    /招聘要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|$)/i
+    /职位要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|展开地图|点击申请|立即申请|职位 ID|职位ID|$)/i,
+    /任职要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
+    /岗位要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
+    /招聘条件[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
+    /招聘要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
+    /(?:^|\s)(1[、\.．]\s*(?:本科|硕士|博士|学历|英语|熟悉|了解|具备|有).{10,800})/i
 ];
 
 export function cleanJobTitle(raw: string): string {
@@ -55,17 +54,18 @@ export function attachStructuredJobFields(job: CareerJobListing): CareerJobListi
     };
 }
 
-export function isValidJobListing(job: CareerJobListing): boolean {
+export function isValidJobListing(
+    job: CareerJobListing,
+    validation?: JobListingValidationOptions
+): boolean {
     const title = cleanJobTitle(job.title);
-    if (!title || NOISE_TITLES.test(title)) {
+    if (!title) {
         return false;
     }
 
-    if (NOISE_URL_PARTS.some((pattern) => pattern.test(job.detailUrl))) {
+    if (validation && !isValidDetailUrl(job.detailUrl, validation)) {
         return false;
-    }
-
-    if (!VALID_DETAIL_URL.test(job.detailUrl)) {
+    } else if (!validation && !/(?:\/detail|\/job\/|position\/\d+|post_detail|jobUnionId|jobDetail|postid=)/i.test(job.detailUrl)) {
         return false;
     }
 
@@ -89,8 +89,10 @@ export function formatStructuredJobListing(job: CareerJobListing, index: number)
 function cleanRequirementText(raw: string): string {
     return raw
         .replace(/^[\s\d、\.．)）]+/, '')
-        .replace(/团队介绍[:：][\s\S]*?(?=1、|1\.|一、|$)/i, '')
+        .replace(/日常实习[:：][\s\S]*?(?=1、|1\.|职位要求|任职要求|$)/i, '')
+        .replace(/团队介绍[:：][\s\S]*?(?=1、|1\.|一、|职位要求|任职要求|$)/i, '')
         .replace(/岗位职责[:：][\s\S]*?(?=职位要求|任职要求|岗位要求|$)/i, '')
+        .replace(/的同学提供为期[\s\S]*?(?=1、|1\.|职位要求|任职要求|$)/i, '')
         .replace(/\s+/g, ' ')
         .slice(0, 800)
         .trim();

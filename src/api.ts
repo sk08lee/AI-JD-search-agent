@@ -6,7 +6,8 @@ import { taskTemplates, TaskTemplate } from "./tasks/index.js";
 import { requirementsOnlyUserPrompt } from "./tasks/requirementsOnlyPrompt.js";
 import { getReportTemplate } from "./reports/templates.js";
 import { commandExists, resolveUvxCommand } from "./commandUtils.js";
-import { fetchCareerPortalPages, formatCareerFetchContext } from "./careerPortalFetcher.js";
+import { fetchCareerPortalPages } from "./careerPortalFetcher.js";
+import { buildMergedReportContext, extractMergedSections } from "./careerContextMerger.js";
 import fs from "fs";
 import path from "path";
 
@@ -34,10 +35,19 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
     const reportFileName = `${taskId}-job-demand-report.md`;
     const reportPath = path.join(outPath, reportFileName);
 
-    const ragContext = await retrieveContext(template.knowledgeBaseDir);
+    const ragQuery = `${category} ${jobTitle} 岗位需求 招聘条件 能力要求 技术栈`;
+    const ragContext = await retrieveContext(template.knowledgeBaseDir, ragQuery);
     const careerResults = await fetchCareerPortalPages({ jobTitle, jobCategory: category });
-    const webContext = formatCareerFetchContext(careerResults, jobTitle, category);
-    const context = truncateContext([ragContext, webContext].filter(Boolean).join('\n\n---\n\n'));
+    const mergedContext = buildMergedReportContext({
+        ragContext,
+        careerResults,
+        keyword: jobTitle,
+        jobCategory: category
+    });
+    const context = truncateContext(
+        mergedContext,
+        Number(process.env.CONTEXT_MAX_CHARS || 15000)
+    );
 
     if (careerResults.length > 0) {
         const successCount = careerResults.filter((item) => item.status === 'success').length;
@@ -90,10 +100,11 @@ export function listTasks() {
     }));
 }
 
-async function retrieveContext(knowledgeBaseDir: string) {
+async function retrieveContext(knowledgeBaseDir: string, query: string) {
     const fullPath = path.join(knowledgeDir, knowledgeBaseDir);
     const embeddingRetriever = new EmbeddingRetriever(config.embedding.model);
     const files = collectMarkdownFiles(fullPath);
+    const topK = Number(process.env.RAG_TOP_K || 8);
 
     if (files.length === 0) {
         const generalPath = path.join(knowledgeDir, 'jobs', 'general');
@@ -112,7 +123,7 @@ async function retrieveContext(knowledgeBaseDir: string) {
         }
     }
 
-    const context = (await embeddingRetriever.retrieve('岗位需求分析', 3)).join('\n');
+    const context = (await embeddingRetriever.retrieve(query, topK)).join('\n\n');
     return context;
 }
 
@@ -129,14 +140,15 @@ function collectMarkdownFiles(dir: string): string[] {
 
 function buildGenericFallbackReport(context: string, error: unknown, jobTitle: string, jobCategory?: string): string {
     const message = sanitizeErrorMessage(error);
-    const careerSection = extractCareerSection(context);
+    const { webSection, ragSection } = extractMergedSections(context);
 
-    if (careerSection) {
+    if (webSection || ragSection) {
+        const body = [webSection, ragSection].filter(Boolean).join('\n\n');
         return `# ${jobTitle}岗位需求报告
 
-> 说明：LLM 调用失败（${message}），以下内容由系统自动抓取的招聘官网信息直接整理。
+> 说明：LLM 调用失败（${message}），以下内容由系统自动抓取与本地知识库直接整理。
 
-${careerSection}`;
+${body}`;
     }
 
     const categoryLine = jobCategory && jobCategory !== jobTitle
@@ -159,19 +171,7 @@ ${context.slice(0, 3000)}
 `;
 }
 
-function extractCareerSection(context: string): string {
-    const marker = '## 自动检索的公开招聘官网岗位信息';
-    if (!context.includes(marker)) {
-        return '';
-    }
-
-    const start = context.indexOf(marker);
-    const rest = context.slice(start);
-    const end = rest.indexOf('\n\n---\n\n');
-    return end >= 0 ? rest.slice(0, end).trim() : rest.trim();
-}
-
-function truncateContext(context: string, maxChars = 10000): string {
+function truncateContext(context: string, maxChars = 15000): string {
     if (context.length <= maxChars) {
         return context;
     }

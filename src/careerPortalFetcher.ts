@@ -1,7 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { attachStructuredJobFields, isValidJobListing } from './careerJobFields.js';
-import { formatJobListings, searchPortalJobs, type CareerJobListing, type PortalSearchConfig } from './careerJobSearch.js';
+import { buildValidationOptions } from './careerJobValidation.js';
+import {
+    dedupeJobsGlobally,
+    formatJobListings,
+    searchPortalJobs,
+    type CareerJobListing,
+    type PortalSearchConfig
+} from './careerJobSearch.js';
 import { isPlaywrightFetchEnabled } from './playwrightFetcher.js';
 
 export interface CareerPortal {
@@ -29,6 +36,7 @@ export interface CareerFetchResult {
     jobs: CareerJobListing[];
     excerpt?: string;
     error?: string;
+    search?: PortalSearchConfig;
 }
 
 const DEFAULT_MAX_SOURCES = 10;
@@ -114,17 +122,61 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
         results.push(await searchPortal(target, keyword));
     }
 
-    return results;
+    return aggregateCareerResults(results, keyword);
+}
+
+export function aggregateCareerResults(results: CareerFetchResult[], keyword: string): CareerFetchResult[] {
+    const maxTotal = Number(process.env.CAREER_JOB_MAX_TOTAL_RESULTS || 20);
+    const pool: CareerJobListing[] = [];
+
+    for (const result of results) {
+        const validation = buildValidationOptions(result.search);
+        const validJobs = result.jobs
+            .map(attachStructuredJobFields)
+            .filter((job) => isValidJobListing(job, validation))
+            .map((job) => ({
+                ...job,
+                company: job.company || result.company,
+                sourceLabel: job.sourceLabel || result.label
+            }));
+
+        for (const job of validJobs) {
+            pool.push(job);
+        }
+    }
+
+    const deduped = dedupeJobsGlobally(pool, keyword, maxTotal);
+    const grouped = new Map<string, CareerFetchResult>();
+
+    for (const job of deduped) {
+        const matchedSource = results.find((item) =>
+            item.company === job.company && (item.label || '') === (job.sourceLabel || '')
+        ) || results.find((item) => item.company === job.company);
+
+        const groupKey = matchedSource
+            ? `${matchedSource.company}::${matchedSource.label || ''}::${matchedSource.url}`
+            : `${job.company || '未知公司'}::::`;
+
+        if (!grouped.has(groupKey)) {
+            grouped.set(groupKey, {
+                company: matchedSource?.company || job.company || '未知公司',
+                label: matchedSource?.label || job.sourceLabel,
+                url: matchedSource?.url || job.detailUrl,
+                status: 'success',
+                fetchMode: matchedSource?.fetchMode || 'playwright',
+                jobs: [],
+                search: matchedSource?.search
+            });
+        }
+
+        grouped.get(groupKey)!.jobs.push(job);
+    }
+
+    return Array.from(grouped.values());
 }
 
 export function formatCareerFetchContext(results: CareerFetchResult[], keyword: string, jobCategory?: string): string {
-    const matchedSources = results
-        .map((item) => ({
-            ...item,
-            jobs: item.jobs.map(attachStructuredJobFields).filter(isValidJobListing)
-        }))
-        .filter((item) => item.jobs.length > 0);
-
+    const matchedSources = results.filter((item) => item.jobs.length > 0);
     if (matchedSources.length === 0) {
         return '';
     }
@@ -138,13 +190,14 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
     const sections: string[] = [
         '## 自动检索的公开招聘官网岗位信息',
         categoryLine,
-        `共检索到 ${totalJobs} 条具体岗位信息（仅展示匹配岗位数大于 0 的公司）。`,
+        `共检索到 ${totalJobs} 条具体岗位信息（全源去重后，仅展示匹配岗位数大于 0 的公司）。`,
         '每个岗位仅保留：招聘条件 / 招聘要求 / 岗位要求。'
     ];
 
     for (const item of matchedSources) {
         const title = item.label ? `${item.company} - ${item.label}` : item.company;
-        const listings = formatJobListings(item.jobs);
+        const validation = buildValidationOptions(item.search);
+        const listings = formatJobListings(item.jobs, validation);
         if (listings) {
             sections.push(`### ${title}\n\n${listings}`);
         }
@@ -164,6 +217,7 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             status: 'failed',
             fetchMode: 'playwright',
             jobs: [],
+            search: target.search,
             error: 'Playwright 抓取已关闭，无法进入动态招聘页搜索岗位'
         };
     }
@@ -175,7 +229,9 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             keyword,
             fetchMode,
             waitMs: target.waitMs || 5000,
-            search: target.search
+            search: target.search,
+            company: target.company,
+            sourceLabel: target.label
         });
 
         if (searchResult.error && searchResult.jobs.length === 0) {
@@ -186,6 +242,7 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
                 status: 'failed',
                 fetchMode,
                 jobs: [],
+                search: target.search,
                 error: searchResult.error
             };
         }
@@ -197,6 +254,7 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             status: 'success',
             fetchMode,
             jobs: searchResult.jobs,
+            search: target.search,
             excerpt: searchResult.pageSummary
         };
     } catch (error) {
@@ -208,6 +266,7 @@ async function searchPortal(target: CareerPortal & { targetUrl: string }, keywor
             status: 'failed',
             fetchMode,
             jobs: [],
+            search: target.search,
             error: message
         };
     }

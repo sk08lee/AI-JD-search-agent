@@ -1,3 +1,5 @@
+import { extractMergedSections } from '../careerContextMerger.js';
+
 export interface ReportTemplate {
   id: string;
   name: string;
@@ -7,16 +9,15 @@ export interface ReportTemplate {
 
 function generateJobDemandReport(context: string, error: unknown, jobTitle: string): string {
   const message = error instanceof Error ? error.message : String(error);
-  const careerSection = context.includes('## 自动检索的公开招聘官网岗位信息')
-    ? context.slice(context.indexOf('## 自动检索的公开招聘官网岗位信息')).split('\n\n---\n\n')[0]
-    : '';
+  const { webSection, ragSection } = extractMergedSections(context);
 
-  if (careerSection.trim()) {
+  if (webSection || ragSection) {
+    const body = [webSection, ragSection].filter(Boolean).join('\n\n');
     return `# ${jobTitle}岗位需求报告
 
-> 说明：LLM 调用失败（${message}），以下内容由系统自动抓取的招聘官网信息直接整理。
+> 说明：LLM 调用失败（${message}），以下内容由系统自动抓取与本地知识库直接整理。
 
-${careerSection.trim()}`;
+${body}`;
   }
 
   return `# ${jobTitle}岗位需求报告
@@ -40,14 +41,8 @@ export const reportTemplates: Record<string, ReportTemplate> = {
     id: 'job-demand-report',
     name: '岗位需求报告',
     sections: [
-      '岗位搜索概览',
-      '实习/校招/社招岗位差异',
-      '高频能力要求',
-      '高频技术关键词',
-      '常见项目经历要求',
-      '简历优化建议',
-      '项目匹配点',
-      '信息来源'
+      '公开招聘官网岗位（招聘条件）',
+      '结合本地岗位知识库归纳（能力要求与求职洞察）'
     ],
     fallback: generateJobDemandReport
   }

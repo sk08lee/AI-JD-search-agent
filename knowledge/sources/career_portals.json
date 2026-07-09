@@ -6,7 +6,11 @@
     "url": "https://jobs.bytedance.com/campus",
     "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 5000,
+    "search": {
+      "detailLinkPatterns": ["position", "detail"],
+      "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"]
+    }
   },
   {
     "company": "字节跳动",
@@ -15,7 +19,11 @@
     "url": "https://jobs.bytedance.com/experienced/",
     "searchUrl": "https://jobs.bytedance.com/experienced/position?keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 5000,
+    "search": {
+      "detailLinkPatterns": ["position", "detail"],
+      "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"]
+    }
   },
   {
     "company": "字节跳动",
@@ -32,15 +40,26 @@
     "url": "https://join.qq.com",
     "searchUrl": "https://join.qq.com/post.html?query={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 6000,
+    "search": {
+      "inputSelector": "input[type='search'], input[placeholder*='搜索'], input[placeholder*='岗位']",
+      "detailLinkPatterns": ["post_detail", "post.html", "position", "job"],
+      "validDetailUrlPatterns": ["post_detail", "postid=", "postId=", "position", "/job/"]
+    }
   },
   {
     "company": "腾讯",
     "label": "社会招聘",
     "channel": "social",
     "url": "https://careers.tencent.com/jobopportunity.html",
+    "searchUrl": "https://careers.tencent.com/search.html?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 6000,
+    "search": {
+      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='关键词']",
+      "detailLinkPatterns": ["job", "position", "detail", "recruit"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail", "postid="]
+    }
   },
   {
     "company": "腾讯",
@@ -55,8 +74,14 @@
     "label": "校园招聘",
     "channel": "campus",
     "url": "https://campus-talent.alibaba.com/",
+    "searchUrl": "https://campus-talent.alibaba.com/campus/position-list?keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 6000,
+    "search": {
+      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位']",
+      "detailLinkPatterns": ["position", "job", "detail", "campus"],
+      "validDetailUrlPatterns": ["position", "/job/", "detail", "postId="]
+    }
   },
   {
     "company": "阿里巴巴",
@@ -81,15 +106,27 @@
     "url": "https://zhaopin.meituan.com/web/campus",
     "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 6000,
+    "search": {
+      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位'], input[type='search']",
+      "detailLinkPatterns": ["position", "jobUnionId", "detail", "job"],
+      "validDetailUrlPatterns": ["position/detail", "jobUnionId", "position\\?", "/job/"],
+      "noiseUrlParts": ["privacy", "rules-center", "#/news"]
+    }
   },
   {
     "company": "美团",
     "label": "社会招聘",
     "channel": "social",
     "url": "https://zhaopin.meituan.com/web/social",
+    "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 6000,
+    "search": {
+      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位'], input[type='search']",
+      "detailLinkPatterns": ["position", "jobUnionId", "detail", "job"],
+      "validDetailUrlPatterns": ["position/detail", "jobUnionId", "position\\?", "/job/"]
+    }
   },
   {
     "company": "美团",
@@ -105,7 +142,11 @@
     "channel": "unified",
     "url": "https://talent.baidu.com/jobs/",
     "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}",
-    "fetchMode": "html"
+    "fetchMode": "html",
+    "search": {
+      "detailLinkPatterns": ["job", "position", "detail"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail"]
+    }
   },
   {
     "company": "华为",
@@ -119,8 +160,15 @@
     "label": "校园招聘（含实习）",
     "channel": "campus",
     "url": "https://campus.jd.com",
+    "searchUrl": "https://campus.jd.com/#/jobs?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000
+    "waitMs": 7000,
+    "search": {
+      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='关键词'], input[type='search']",
+      "detailLinkPatterns": ["jobDetail", "job", "detail", "position"],
+      "validDetailUrlPatterns": ["jobDetail", "#/job", "positionId=", "/detail", "reqId="],
+      "noiseUrlParts": ["#/news", "privacy", "rules-center"]
+    }
   },
   {
     "company": "网易",
