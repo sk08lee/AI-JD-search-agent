@@ -9,16 +9,16 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>🚀 通用岗位搜索助手</h1>
-            <p>AI 驱动的岗位需求分析工具</p>
+            <h1>🚀 实习岗位搜索助手</h1>
+            <p>AI 驱动的实习岗位需求分析工具（仅检索 11 家大厂实习入口）</p>
         </header>
 
         <main class="main">
             <section class="input-section">
                 <div class="form-group">
-                    <label for="job-category">岗位类型</label>
-                    <input type="text" id="job-category" class="text-input" placeholder="例如：产品、技术">
-                    <p class="input-hint">填写岗位所属大类，如产品、技术、运营等</p>
+                    <label for="job-category">岗位方向（可选）</label>
+                    <input type="text" id="job-category" class="text-input" placeholder="例如：产品、技术（默认：实习）">
+                    <p class="input-hint">用于本地知识库检索方向；官网抓取固定为实习岗位</p>
                 </div>
 
                 <div class="form-group">
@@ -28,7 +28,7 @@
                 </div>
 
                 <button id="generate-btn" class="generate-btn">
-                    <span class="btn-text">生成岗位需求报告</span>
+                    <span class="btn-text">生成实习岗位需求报告</span>
                     <span class="btn-spinner" style="display: none;">⏳</span>
                 </button>
             </section>

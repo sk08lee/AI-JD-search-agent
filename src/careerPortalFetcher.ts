@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { attachStructuredJobFields, isValidJobListing } from './careerJobFields.js';
+import { attachStructuredJobFields, isValidJobListing, passesInternshipFilter } from './careerJobFields.js';
 import { buildValidationOptions } from './careerJobValidation.js';
 import { matchesJobKeyword } from './careerKeywordMatch.js';
 import {
@@ -15,7 +15,7 @@ import { isPlaywrightFetchEnabled } from './playwrightFetcher.js';
 export interface CareerPortal {
     company: string;
     label?: string;
-    channel?: 'unified' | 'campus' | 'experienced' | 'social';
+    channel?: 'internship' | 'campus' | 'unified' | 'experienced' | 'social';
     url: string;
     searchUrl?: string;
     fetchMode?: 'html' | 'playwright';
@@ -40,7 +40,7 @@ export interface CareerFetchResult {
     search?: PortalSearchConfig;
 }
 
-const DEFAULT_MAX_SOURCES = 12;
+const DEFAULT_MAX_SOURCES = 11;
 
 export function loadCareerPortals(): CareerPortal[] {
     const filePath = path.join(process.cwd(), 'knowledge', 'sources', 'career_portals.json');
@@ -50,7 +50,16 @@ export function loadCareerPortals(): CareerPortal[] {
 
     try {
         const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as CareerPortal[];
-        return Array.isArray(raw) ? raw : [];
+        if (!Array.isArray(raw)) {
+            return [];
+        }
+
+        const internshipOnly = process.env.CAREER_INTERNSHIP_ONLY !== '0';
+        if (!internshipOnly) {
+            return raw;
+        }
+
+        return raw.filter((portal) => portal.channel === 'internship');
     } catch {
         console.warn('[CareerFetch] Failed to parse career_portals.json');
         return [];
@@ -58,7 +67,6 @@ export function loadCareerPortals(): CareerPortal[] {
 }
 
 export function selectOnePortalPerCompany(portals: CareerPortal[]): CareerPortal[] {
-    const channelOrder = ['campus', 'unified', 'social', 'experienced'];
     const byCompany = new Map<string, CareerPortal[]>();
 
     for (const portal of portals) {
@@ -76,11 +84,8 @@ export function selectOnePortalPerCompany(portals: CareerPortal[]): CareerPortal
 
     return companyOrder.map((company) => {
         const companyPortals = byCompany.get(company) ?? [];
-        for (const channel of channelOrder) {
-            const match = companyPortals.find((portal) => (portal.channel || 'unified') === channel);
-            if (match) return match;
-        }
-        return companyPortals[0];
+        const internPortal = companyPortals.find((portal) => portal.channel === 'internship');
+        return internPortal || companyPortals[0];
     }).filter((portal): portal is CareerPortal => !!portal);
 }
 
@@ -100,12 +105,19 @@ export function selectPortalTargets(portals: CareerPortal[], maxSources: number)
     return onePerCompany.slice(0, maxSources > 0 ? maxSources : onePerCompany.length);
 }
 
-export function buildPortalTargets(portals: CareerPortal[], keyword: string, maxSources: number): Array<CareerPortal & { targetUrl: string }> {
-    const encoded = encodeURIComponent(keyword.trim());
-    return selectPortalTargets(portals, maxSources).map((portal) => ({
-        ...portal,
-        targetUrl: (portal.searchUrl || portal.url).replace(/\{keyword\}/g, encoded)
-    }));
+export function buildPortalTargets(
+    portals: CareerPortal[],
+    keyword: string,
+    maxSources: number
+): Array<CareerPortal & { targetUrl: string }> {
+    return selectPortalTargets(portals, maxSources).map((portal) => {
+        const searchKeyword = portal.search?.listSearchKeyword?.trim() || keyword.trim();
+        const encoded = encodeURIComponent(searchKeyword);
+        return {
+            ...portal,
+            targetUrl: (portal.searchUrl || portal.url).replace(/\{keyword\}/g, encoded)
+        };
+    });
 }
 
 export async function fetchCareerPortalPages(options: CareerFetchOptions): Promise<CareerFetchResult[]> {
@@ -144,6 +156,7 @@ export function aggregateCareerResults(results: CareerFetchResult[], keyword: st
         const validJobs = result.jobs
             .map(attachStructuredJobFields)
             .filter((job) => isValidJobListing(job, validation))
+            .filter((job) => passesInternshipFilter(job))
             .filter((job) => matchesJobKeyword(`${job.title} ${job.summary} ${job.requirements || ''}`, keyword))
             .map((job) => ({
                 ...job,
@@ -193,15 +206,15 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
     }
 
     const categoryLine = jobCategory?.trim()
-        ? `岗位类型：${jobCategory.trim()}；搜索关键词：${keyword}`
-        : `搜索关键词：${keyword}`;
+        ? `岗位类型：实习；方向：${jobCategory.trim()}；搜索关键词：${keyword}`
+        : `岗位类型：实习；搜索关键词：${keyword}`;
 
     const totalJobs = matchedSources.reduce((count, item) => count + item.jobs.length, 0);
 
     const sections: string[] = [
-        '## 自动检索的公开招聘官网岗位信息',
+        '## 自动检索的公开招聘官网实习岗位信息',
         categoryLine,
-        `共检索到 ${totalJobs} 条具体岗位信息（全源去重后，仅展示匹配岗位数大于 0 的公司）。`,
+        `共检索到 ${totalJobs} 条实习岗位信息（全源去重后，仅展示匹配岗位数大于 0 的公司）。`,
         '每个岗位仅保留：招聘条件 / 招聘要求 / 岗位要求。'
     ];
 

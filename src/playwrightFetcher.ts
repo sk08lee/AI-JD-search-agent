@@ -54,8 +54,10 @@ async function getBrowser(): Promise<Browser> {
 
 async function launchBrowser(): Promise<Browser> {
     const { chromium } = await import('playwright');
+    const channel = process.env.PLAYWRIGHT_CHANNEL?.trim();
     return chromium.launch({
         headless: true,
+        channel: channel || undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 }

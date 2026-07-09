@@ -7,7 +7,9 @@ import {
     type JobListingValidationOptions
 } from './careerJobValidation.js';
 import {
+    getListSearchKeyword,
     matchesJobKeyword,
+    matchesJobKeywordAtListStage,
     scoreJobKeywordMatch
 } from './careerKeywordMatch.js';
 import { isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
@@ -16,12 +18,19 @@ export interface PortalSearchConfig {
     inputSelector?: string;
     submitSelector?: string;
     resultsSelector?: string;
+    listLinkSelector?: string;
+    waitForSelector?: string;
+    detailContentSelector?: string;
     detailLinkPatterns?: string[];
     validDetailUrlPatterns?: string[];
     noiseUrlParts?: string[];
     noiseTitles?: string[];
+    listSearchKeyword?: string;
+    matchKeywordOnDetailOnly?: boolean;
+    htmlUrlPatterns?: string[];
     maxResults?: number;
     maxDetailPages?: number;
+    requireInternship?: boolean;
 }
 
 export interface CareerJobListing {
@@ -149,12 +158,19 @@ function normalizeSearchConfig(search?: PortalSearchConfig): Required<PortalSear
         inputSelector: search?.inputSelector || '',
         submitSelector: search?.submitSelector || '',
         resultsSelector: search?.resultsSelector || '',
+        listLinkSelector: search?.listLinkSelector || '',
+        waitForSelector: search?.waitForSelector || '',
+        detailContentSelector: search?.detailContentSelector || '',
         detailLinkPatterns: search?.detailLinkPatterns?.length ? search.detailLinkPatterns : DEFAULT_DETAIL_PATTERNS,
         validDetailUrlPatterns: search?.validDetailUrlPatterns || [],
         noiseUrlParts: search?.noiseUrlParts || [],
         noiseTitles: search?.noiseTitles || [],
+        listSearchKeyword: search?.listSearchKeyword || '',
+        matchKeywordOnDetailOnly: search?.matchKeywordOnDetailOnly === true,
+        htmlUrlPatterns: search?.htmlUrlPatterns || [],
         maxResults,
         maxDetailPages: Math.max(maxDetailPages, maxResults),
+        requireInternship: search?.requireInternship === true,
         validation: buildValidationOptions(search)
     };
 }
@@ -185,8 +201,17 @@ async function searchJobsWithPlaywright(
 
         await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
 
+        if (config.waitForSelector) {
+            await page.locator(config.waitForSelector).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined);
+            await page.waitForTimeout(1000);
+        }
+
+        if (config.resultsSelector) {
+            await page.locator(config.resultsSelector).first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
+        }
+
         const candidates = await collectJobCandidatesFromPage(page, keyword, config);
-        const jobs = await enrichJobsWithDetailPages(page, candidates, config, waitMs, company, sourceLabel);
+        const jobs = await enrichJobsWithDetailPages(page, candidates, config, waitMs, keyword, company, sourceLabel);
         const pageSummary = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim().slice(0, 1200);
 
         return {
@@ -243,10 +268,14 @@ async function searchJobsWithHtml(
 }
 
 async function tryInteractiveSearch(page: Page, keyword: string, config: ReturnType<typeof normalizeSearchConfig>): Promise<boolean> {
+    const searchText = config.matchKeywordOnDetailOnly || config.listSearchKeyword
+        ? getListSearchKeyword(keyword, config.listSearchKeyword)
+        : keyword;
+
     if (config.inputSelector) {
         const input = page.locator(config.inputSelector).first();
         if (await input.count()) {
-            await input.fill(keyword);
+            await input.fill(searchText);
             if (config.submitSelector) {
                 await page.locator(config.submitSelector).first().click();
             } else {
@@ -262,7 +291,7 @@ async function tryInteractiveSearch(page: Page, keyword: string, config: ReturnT
     ).first();
 
     if (await genericInput.count()) {
-        await genericInput.fill(keyword);
+        await genericInput.fill(searchText);
         await genericInput.press('Enter');
         await page.waitForTimeout(3000);
         return true;
@@ -276,31 +305,116 @@ async function collectJobCandidatesFromPage(
     keyword: string,
     config: ReturnType<typeof normalizeSearchConfig>
 ): Promise<CareerJobListing[]> {
-    const rawLinks = await page.evaluate(({ patterns, limit }) => {
-        const anchors = Array.from(document.querySelectorAll('a[href]')) as HTMLAnchorElement[];
-        const results: Array<{ href: string; text: string }> = [];
+    const collected: CareerJobListing[] = [];
 
-        for (const anchor of anchors) {
-            const href = anchor.href;
-            const text = (anchor.innerText || anchor.textContent || '').replace(/\s+/g, ' ').trim();
-            if (!href || !text || text.length < 2) continue;
-            if (!patterns.some((pattern) => href.toLowerCase().includes(pattern.toLowerCase()))) continue;
-            results.push({ href, text });
-            if (results.length >= limit * 4) break;
-        }
+    if (config.listLinkSelector) {
+        collected.push(...await collectLinksBySelector(page, config.listLinkSelector, config.maxResults));
+    }
 
-        return results;
-    }, { patterns: config.detailLinkPatterns, limit: config.maxResults });
+    if (collected.length === 0) {
+        const rawLinks = await page.evaluate(({ patterns, limit }) => {
+            const anchors = Array.from(document.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+            const results: Array<{ href: string; text: string }> = [];
 
-    return dedupeJobCandidates(
-        rawLinks.map((item) => ({
+            for (const anchor of anchors) {
+                const href = anchor.href;
+                const text = (anchor.innerText || anchor.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!href || !text || text.length < 2) continue;
+                if (href.startsWith('javascript:')) continue;
+                if (!patterns.some((pattern) => href.toLowerCase().includes(pattern.toLowerCase()))) continue;
+                results.push({ href, text });
+                if (results.length >= limit * 4) break;
+            }
+
+            return results;
+        }, { patterns: config.detailLinkPatterns, limit: config.maxResults });
+
+        collected.push(...rawLinks.map((item) => ({
             title: item.text.slice(0, 120),
             detailUrl: item.href,
             summary: item.text.slice(0, 300)
-        })),
-        keyword,
-        config
-    );
+        })));
+    }
+
+    if (collected.length === 0 && config.htmlUrlPatterns.length > 0) {
+        const html = await page.content();
+        collected.push(...extractCandidatesFromHtmlContent(html, page.url(), config.htmlUrlPatterns, config.maxResults));
+    }
+
+    return dedupeJobCandidates(collected, keyword, config);
+}
+
+function extractCandidatesFromHtmlContent(
+    html: string,
+    baseUrl: string,
+    patterns: string[],
+    maxResults: number
+): CareerJobListing[] {
+    const candidates: CareerJobListing[] = [];
+    const seen = new Set<string>();
+
+    for (const patternSource of patterns) {
+        const regex = new RegExp(patternSource, 'gi');
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(html)) !== null) {
+            let detailUrl = '';
+            const raw = match[0];
+
+            if (/^https?:\/\//i.test(raw) || raw.startsWith('#/')) {
+                detailUrl = resolveUrl(raw, baseUrl);
+            } else if (/postid/i.test(raw)) {
+                const id = raw.match(/\d+/)?.[0];
+                if (id) {
+                    detailUrl = `https://join.qq.com/post_detail.html?postid=${id}`;
+                }
+            } else if (match[1]) {
+                detailUrl = resolveUrl(match[1], baseUrl);
+            }
+
+            if (!detailUrl || seen.has(detailUrl)) continue;
+            seen.add(detailUrl);
+            candidates.push({
+                title: '岗位详情',
+                detailUrl,
+                summary: raw.slice(0, 300)
+            });
+            if (candidates.length >= maxResults * 4) break;
+        }
+    }
+
+    return candidates;
+}
+
+async function collectLinksBySelector(
+    page: Page,
+    selector: string,
+    maxResults: number
+): Promise<CareerJobListing[]> {
+    const locators = page.locator(selector);
+    const count = await locators.count();
+    const limit = Math.min(count, maxResults * 4);
+    const results: CareerJobListing[] = [];
+
+    for (let i = 0; i < limit; i++) {
+        const item = locators.nth(i);
+        let href = await item.getAttribute('href');
+        if (!href) {
+            href = await item.locator('a[href]').first().getAttribute('href');
+        }
+        if (!href) continue;
+
+        const detailUrl = new URL(href, page.url()).toString();
+        const text = ((await item.innerText()) || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length < 2) continue;
+
+        results.push({
+            title: text.slice(0, 120),
+            detailUrl,
+            summary: text.slice(0, 300)
+        });
+    }
+
+    return results;
 }
 
 async function enrichJobsWithDetailPages(
@@ -308,6 +422,7 @@ async function enrichJobsWithDetailPages(
     candidates: CareerJobListing[],
     config: ReturnType<typeof normalizeSearchConfig>,
     waitMs: number,
+    keyword: string,
     company?: string,
     sourceLabel?: string
 ): Promise<CareerJobListing[]> {
@@ -317,19 +432,44 @@ async function enrichJobsWithDetailPages(
         try {
             await page.goto(candidate.detailUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await page.waitForTimeout(Math.min(waitMs, 3000));
-            const detailText = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+
+            if (config.detailContentSelector) {
+                await page.locator(config.detailContentSelector).first()
+                    .waitFor({ state: 'visible', timeout: 10000 })
+                    .catch(() => undefined);
+            }
+
+            const detailLocator = config.detailContentSelector
+                ? page.locator(config.detailContentSelector).first()
+                : page.locator('body');
+            const detailText = ((await detailLocator.innerText().catch(() => '')) || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const mergedText = `${candidate.title} ${detailText}`;
+            if (config.matchKeywordOnDetailOnly && !matchesJobKeyword(mergedText, keyword)) {
+                continue;
+            }
+
+            const detailTitle = detailText.split('\n').map((line) => line.trim()).find((line) =>
+                line.length >= 4 && line.length <= 80 && !/^(首页|登录|投递|分享)/.test(line)
+            );
+
             enriched.push(attachStructuredJobFields({
                 ...candidate,
+                title: detailTitle && candidate.title === '岗位详情' ? detailTitle : candidate.title,
                 company: candidate.company || company,
                 sourceLabel: candidate.sourceLabel || sourceLabel,
                 detailExcerpt: detailText.slice(0, 2400)
             }));
         } catch {
-            enriched.push(attachStructuredJobFields({
-                ...candidate,
-                company: candidate.company || company,
-                sourceLabel: candidate.sourceLabel || sourceLabel
-            }));
+            if (!config.matchKeywordOnDetailOnly) {
+                enriched.push(attachStructuredJobFields({
+                    ...candidate,
+                    company: candidate.company || company,
+                    sourceLabel: candidate.sourceLabel || sourceLabel
+                }));
+            }
         }
     }
 
@@ -419,11 +559,16 @@ function dedupeJobCandidates(
     const seen = new Set<string>();
     const filtered: CareerJobListing[] = [];
 
+    const listMatchOptions = {
+        listSearchKeyword: config.listSearchKeyword,
+        matchKeywordOnDetailOnly: config.matchKeywordOnDetailOnly
+    };
+
     for (const candidate of candidates) {
-        const key = candidate.detailUrl.split('?')[0];
+        const key = buildJobDedupeKey(candidate);
         if (seen.has(key)) continue;
         if (!isLikelyJobLink(candidate.title, candidate.detailUrl, config.validation)) continue;
-        if (!matchesKeyword(`${candidate.title} ${candidate.summary}`, keyword)) continue;
+        if (!matchesJobKeywordAtListStage(`${candidate.title} ${candidate.summary}`, keyword, listMatchOptions)) continue;
         seen.add(key);
         filtered.push(candidate);
     }

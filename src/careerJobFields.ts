@@ -8,6 +8,8 @@ const REQUIREMENT_SECTION_PATTERNS = [
     /岗位要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
     /招聘条件[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
     /招聘要求[\s:：]*([\s\S]*?)(?=投递|相关职位|工作地点|职位 ID|职位ID|$)/i,
+    /基本要求[\s:：]*([\s\S]*?)(?=投递|优先条件|工作地点|职位 ID|职位ID|$)/i,
+    /优先条件[\s:：]*([\s\S]*?)(?=投递|工作地点|职位 ID|职位ID|$)/i,
     /(?:^|\s)(1[、\.．]\s*(?:本科|硕士|博士|学历|英语|熟悉|了解|具备|有).{10,800})/i
 ];
 
@@ -52,6 +54,20 @@ export function attachStructuredJobFields(job: CareerJobListing): CareerJobListi
         title,
         requirements
     };
+}
+
+export function isExcludedNonInternJob(job: CareerJobListing): boolean {
+    const text = `${job.title} ${job.summary} ${job.requirements || ''} ${job.detailExcerpt || ''}`;
+    return /(?:^|\s)(?:社招|社会招聘|全职(?!.*实习)|\d+[-~]?\d*年(?:以上)?(?:工作)?经验|资深|专家岗|管理岗)/i.test(text)
+        || /校招(?!.*实习)/i.test(text);
+}
+
+export function passesInternshipFilter(job: CareerJobListing): boolean {
+    if (process.env.CAREER_INTERNSHIP_ONLY === '0') {
+        return true;
+    }
+
+    return !isExcludedNonInternJob(job);
 }
 
 export function isValidJobListing(

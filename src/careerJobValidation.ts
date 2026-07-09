@@ -71,6 +71,10 @@ export function isLikelyJobLink(
         return false;
     }
 
+    if (/#\/job/i.test(detailUrl) && options.validDetailUrlPatterns.some((pattern) => pattern.test(detailUrl))) {
+        return true;
+    }
+
     return options.validDetailUrlPatterns.some((pattern) => pattern.test(detailUrl));
 }
 
@@ -93,9 +97,24 @@ export function normalizeJobUrl(url: string): string {
 }
 
 export function buildJobDedupeKey(job: { title: string; detailUrl: string; company?: string }): string {
-    const urlKey = normalizeJobUrl(job.detailUrl);
-    if (urlKey) {
-        return urlKey.toLowerCase();
+    try {
+        const parsed = new URL(job.detailUrl);
+        const hash = parsed.hash && /(?:job|position|detail|post)/i.test(parsed.hash)
+            ? parsed.hash.replace(/\/$/, '')
+            : '';
+        const base = `${parsed.origin}${parsed.pathname}${parsed.search}${hash}`.replace(/\/$/, '');
+        if (base && base !== parsed.origin) {
+            return base.toLowerCase();
+        }
+    } catch {
+        // fall through
+    }
+
+    const raw = job.detailUrl.split('#')[0] === job.detailUrl
+        ? job.detailUrl
+        : job.detailUrl;
+    if (raw) {
+        return raw.toLowerCase();
     }
 
     return `${job.company || ''}:${job.title}`.toLowerCase();

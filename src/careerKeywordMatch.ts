@@ -24,6 +24,32 @@ export function hasConflictingRole(text: string, keyword: string): boolean {
     return false;
 }
 
+export function getListSearchKeyword(keyword: string, listSearchKeyword?: string): string {
+    if (listSearchKeyword?.trim()) {
+        return listSearchKeyword.trim();
+    }
+
+    const chineseParts = keyword.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+    if (chineseParts.length > 0) {
+        return chineseParts.sort((a, b) => b.length - a.length)[0]!;
+    }
+
+    return keyword.trim();
+}
+
+export function matchesJobKeywordAtListStage(
+    text: string,
+    keyword: string,
+    options?: { listSearchKeyword?: string; matchKeywordOnDetailOnly?: boolean }
+): boolean {
+    if (options?.matchKeywordOnDetailOnly) {
+        const listKeyword = getListSearchKeyword(keyword, options.listSearchKeyword);
+        return matchesJobKeyword(text, listKeyword);
+    }
+
+    return matchesJobKeyword(text, keyword);
+}
+
 export function matchesJobKeyword(text: string, keyword: string): boolean {
     const normalized = text.replace(/\s+/g, ' ').trim();
     const compactText = normalized.replace(/\s+/g, '').toLowerCase();

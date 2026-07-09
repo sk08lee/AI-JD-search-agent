@@ -18,7 +18,7 @@ const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 export async function generateReport(taskId: string, jobTitle: string, jobCategory?: string): Promise<string> {
     fs.mkdirSync(outPath, { recursive: true });
 
-    const category = jobCategory?.trim() || jobTitle;
+    const category = jobCategory?.trim() || '实习';
     const searchTarget = jobCategory ? `${jobCategory} · ${jobTitle}` : jobTitle;
 
     const template = taskTemplates[taskId] || {

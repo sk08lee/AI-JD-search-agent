@@ -1,250 +1,202 @@
 [
   {
     "company": "字节跳动",
-    "label": "校园招聘（含实习）",
-    "channel": "campus",
+    "label": "日常实习",
+    "channel": "internship",
     "url": "https://jobs.bytedance.com/campus",
     "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 5000,
+    "waitMs": 6000,
     "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
       "detailLinkPatterns": ["position", "detail"],
-      "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"]
+      "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"],
+      "requireInternship": true
     }
-  },
-  {
-    "company": "字节跳动",
-    "label": "社会招聘",
-    "channel": "experienced",
-    "url": "https://jobs.bytedance.com/experienced/",
-    "searchUrl": "https://jobs.bytedance.com/experienced/position?keywords={keyword}",
-    "fetchMode": "playwright",
-    "waitMs": 5000,
-    "search": {
-      "detailLinkPatterns": ["position", "detail"],
-      "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"]
-    }
-  },
-  {
-    "company": "字节跳动",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://jobs.bytedance.com/",
-    "fetchMode": "playwright",
-    "waitMs": 5000
   },
   {
     "company": "腾讯",
-    "label": "校园招聘（含实习）",
-    "channel": "campus",
-    "url": "https://join.qq.com",
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://join.qq.com/post.html?query=p_2",
     "searchUrl": "https://join.qq.com/post.html?query={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 6000,
+    "waitMs": 8000,
     "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
       "inputSelector": "input[type='search'], input[placeholder*='搜索'], input[placeholder*='岗位']",
-      "detailLinkPatterns": ["post_detail", "post.html", "position", "job"],
-      "validDetailUrlPatterns": ["post_detail", "postid=", "postId=", "position", "/job/"]
+      "waitForSelector": "[class*='post'], [class*='job-list'], [class*='position']",
+      "listLinkSelector": "a[href*='post_detail.html'], a[href*='postid='], a[href*='postId=']",
+      "detailLinkPatterns": ["post_detail.html", "postid=", "postId="],
+      "htmlUrlPatterns": ["https://join\\.qq\\.com/post_detail\\.html\\?postid=\\d+", "postid=\\d+", "postId=\\d+"],
+      "validDetailUrlPatterns": ["post_detail\\.html", "postid=", "postId="],
+      "detailContentSelector": ".job-detail, .post-detail, main",
+      "noiseUrlParts": ["post\\.html\\?query=p_2$", "javascript:"],
+      "requireInternship": true
     }
   },
   {
-    "company": "腾讯",
-    "label": "社会招聘",
-    "channel": "social",
-    "url": "https://careers.tencent.com/jobopportunity.html",
-    "searchUrl": "https://careers.tencent.com/search.html?keyword={keyword}",
+    "company": "阿里巴巴",
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002",
+    "searchUrl": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002&keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 6000,
+    "waitMs": 8000,
     "search": {
-      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='关键词']",
-      "detailLinkPatterns": ["job", "position", "detail", "recruit"],
-      "validDetailUrlPatterns": ["/job/", "position", "detail", "postid="]
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "waitForSelector": "a[href*='/campus/position/'], [class*='position-list']",
+      "listLinkSelector": "a[href*='/campus/position/'][href*='deptCodes'], a[href*='/campus/position/'][href*='positionId']",
+      "detailLinkPatterns": ["/campus/position/", "positionId="],
+      "htmlUrlPatterns": ["https://campus-talent\\.alibaba\\.com/campus/position/\\d+[^\"'\\s<]*"],
+      "validDetailUrlPatterns": ["/campus/position/\\d+", "positionId="],
+      "detailContentSelector": "[class*='position-detail'], [class*='job-detail'], main",
+      "noiseUrlParts": ["position\\?batchId", "javascript:"],
+      "requireInternship": true
     }
-  },
-  {
-    "company": "腾讯",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://careers.tencent.com/",
-    "fetchMode": "playwright",
-    "waitMs": 5000
-  },
-  {
-    "company": "阿里巴巴",
-    "label": "校园招聘",
-    "channel": "campus",
-    "url": "https://campus-talent.alibaba.com/",
-    "searchUrl": "https://campus-talent.alibaba.com/campus/position-list?keywords={keyword}",
-    "fetchMode": "playwright",
-    "waitMs": 6000,
-    "search": {
-      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位']",
-      "detailLinkPatterns": ["position", "job", "detail", "campus"],
-      "validDetailUrlPatterns": ["position", "/job/", "detail", "postId="]
-    }
-  },
-  {
-    "company": "阿里巴巴",
-    "label": "控股集团社会招聘",
-    "channel": "social",
-    "url": "https://talent-holding.alibaba.com/",
-    "fetchMode": "playwright",
-    "waitMs": 5000
-  },
-  {
-    "company": "阿里巴巴",
-    "label": "集团统一招聘官网",
-    "channel": "unified",
-    "url": "https://talent.alibaba.com/",
-    "fetchMode": "playwright",
-    "waitMs": 5000
   },
   {
     "company": "美团",
-    "label": "校园招聘",
-    "channel": "campus",
-    "url": "https://zhaopin.meituan.com/web/campus",
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://zhaopin.meituan.com/web/home",
     "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 6000,
+    "waitMs": 8000,
     "search": {
-      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位'], input[type='search']",
-      "detailLinkPatterns": ["position", "jobUnionId", "detail", "job"],
-      "validDetailUrlPatterns": ["position/detail", "jobUnionId", "position\\?", "/job/"],
-      "noiseUrlParts": ["privacy", "rules-center", "#/news"]
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "inputSelector": "input[placeholder*='搜索'], input[type='search']",
+      "waitForSelector": "[class*='job-list'], [class*='position-list'], a[href*='/web/position/detail']",
+      "listLinkSelector": "a[href*='/web/position/detail'], a[href*='jobUnionId=']",
+      "detailLinkPatterns": ["/web/position/detail", "jobUnionId="],
+      "htmlUrlPatterns": ["https://zhaopin\\.meituan\\.com/web/position/detail\\?[^\"'\\s<]+"],
+      "validDetailUrlPatterns": ["/web/position/detail", "jobUnionId="],
+      "detailContentSelector": "[class*='job-detail'], [class*='position-detail'], main",
+      "noiseUrlParts": ["/web/home", "/web/social", "privacy"],
+      "requireInternship": true
     }
-  },
-  {
-    "company": "美团",
-    "label": "社会招聘",
-    "channel": "social",
-    "url": "https://zhaopin.meituan.com/web/social",
-    "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
-    "fetchMode": "playwright",
-    "waitMs": 6000,
-    "search": {
-      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='岗位'], input[type='search']",
-      "detailLinkPatterns": ["position", "jobUnionId", "detail", "job"],
-      "validDetailUrlPatterns": ["position/detail", "jobUnionId", "position\\?", "/job/"]
-    }
-  },
-  {
-    "company": "美团",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://zhaopin.meituan.com/",
-    "fetchMode": "playwright",
-    "waitMs": 5000
   },
   {
     "company": "百度",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://talent.baidu.com/jobs/",
+    "label": "实习生招聘",
+    "channel": "internship",
+    "url": "https://talent.baidu.com/jobs/list",
     "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}",
-    "fetchMode": "html",
+    "fetchMode": "playwright",
+    "waitMs": 6000,
     "search": {
-      "detailLinkPatterns": ["job", "position", "detail"],
-      "validDetailUrlPatterns": ["/job/", "position", "detail"]
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["/jobs/detail", "/job/", "J\\d+"],
+      "htmlUrlPatterns": ["https://talent\\.baidu\\.com/jobs/detail/[^\"'\\s<]+", "/jobs/detail/"],
+      "validDetailUrlPatterns": ["/jobs/detail", "/job/", "J\\d+"],
+      "requireInternship": true
     }
   },
   {
     "company": "华为",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://career.huawei.com/",
-    "fetchMode": "html"
+    "label": "实习生招聘",
+    "channel": "internship",
+    "url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
+    "searchUrl": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN&keyword={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 8000,
+    "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["job", "position", "detail", "recruitment"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail", "jobId="],
+      "requireInternship": true
+    }
   },
   {
     "company": "京东",
-    "label": "校园招聘（含实习）",
-    "channel": "campus",
-    "url": "https://campus.jd.com",
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://campus.jd.com/#/jobs",
     "searchUrl": "https://campus.jd.com/#/jobs?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 7000,
+    "waitMs": 9000,
     "search": {
-      "inputSelector": "input[placeholder*='搜索'], input[placeholder*='关键词'], input[type='search']",
-      "detailLinkPatterns": ["jobDetail", "job", "detail", "position"],
-      "validDetailUrlPatterns": ["jobDetail", "#/job", "positionId=", "/detail", "reqId="],
-      "noiseUrlParts": ["#/news", "privacy", "rules-center"]
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "inputSelector": "input[placeholder*='搜索'], input[type='search']",
+      "waitForSelector": "[class*='job-list'], [class*='job-card'], a[href*='jobDetail']",
+      "listLinkSelector": "a[href*='jobDetail'], a[href*='#/jobDetail'], a[href*='#/job/detail']",
+      "detailLinkPatterns": ["jobDetail", "#/jobDetail", "#/job/detail", "reqId="],
+      "htmlUrlPatterns": ["#/jobDetail/[^\"'\\s<]+", "#/job/detail[^\"'\\s<]*", "reqId=\\d+"],
+      "validDetailUrlPatterns": ["jobDetail", "#/jobDetail", "#/job/detail", "reqId="],
+      "detailContentSelector": "[class*='job-detail'], main",
+      "noiseUrlParts": ["#/news", "#/jobs$"],
+      "requireInternship": true
     }
   },
   {
     "company": "网易",
-    "label": "网易集团校园招聘",
-    "channel": "campus",
-    "url": "https://campus.163.com",
-    "fetchMode": "html"
-  },
-  {
-    "company": "网易",
-    "label": "网易互娱校园招聘",
-    "channel": "campus",
-    "url": "https://game.campus.163.com",
-    "fetchMode": "html"
-  },
-  {
-    "company": "网易",
-    "label": "网易雷火校园招聘",
-    "channel": "campus",
-    "url": "https://leihuo.163.com/campus/",
-    "fetchMode": "html"
-  },
-  {
-    "company": "网易",
-    "label": "网易游戏社会招聘",
-    "channel": "social",
-    "url": "https://hr.game.163.com/recruit.html",
-    "fetchMode": "html"
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://hr.163.com/job-list.html?workType=1",
+    "searchUrl": "https://hr.163.com/job-list.html?workType=1&keyword={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 7000,
+    "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["job", "position", "detail"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail", "jobId="],
+      "requireInternship": true
+    }
   },
   {
     "company": "小米",
-    "label": "校园招聘",
-    "channel": "campus",
-    "url": "https://hr.xiaomi.com/campus",
-    "fetchMode": "html"
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://xiaomi.jobs.f.mioffice.cn/internship/?spread=6AA3R7B",
+    "searchUrl": "https://xiaomi.jobs.f.mioffice.cn/internship/?spread=6AA3R7B&keyword={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 8000,
+    "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["job", "position", "internship", "detail"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail", "internship"],
+      "requireInternship": true
+    }
   },
   {
     "company": "商汤科技",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://hr.sensetime.com",
-    "fetchMode": "html"
-  },
-  {
-    "company": "商汤科技",
-    "label": "官方招聘页面",
-    "channel": "unified",
-    "url": "https://www.sensetime.com/career",
-    "fetchMode": "html"
-  },
-  {
-    "company": "旷视科技",
-    "label": "校园招聘",
-    "channel": "campus",
-    "url": "http://zhaopin.megvii.com",
-    "fetchMode": "html"
-  },
-  {
-    "company": "旷视科技",
-    "label": "招聘官网",
-    "channel": "unified",
-    "url": "https://www.megvii.com/join_us",
-    "fetchMode": "html"
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://hr.sensetime.com/edu/",
+    "searchUrl": "https://hr.sensetime.com/edu/?keyword={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 7000,
+    "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["job", "position", "campus", "detail"],
+      "validDetailUrlPatterns": ["/job/", "position", "detail"],
+      "requireInternship": true
+    }
   },
   {
     "company": "科大讯飞",
-    "label": "统一招聘官网",
-    "channel": "unified",
-    "url": "https://iflytek.zhiye.com",
-    "fetchMode": "html"
-  },
-  {
-    "company": "科大讯飞",
-    "label": "校园招聘",
-    "channel": "campus",
-    "url": "https://campus.iflytek.com",
-    "fetchMode": "html"
+    "label": "日常实习",
+    "channel": "internship",
+    "url": "https://iflytek.zhiye.com/intern/jobs",
+    "searchUrl": "https://iflytek.zhiye.com/intern/jobs?keyword={keyword}",
+    "fetchMode": "playwright",
+    "waitMs": 7000,
+    "search": {
+      "listSearchKeyword": "产品经理",
+      "matchKeywordOnDetailOnly": true,
+      "detailLinkPatterns": ["job", "position", "intern", "detail"],
+      "validDetailUrlPatterns": ["/job/", "position", "intern", "detail"],
+      "requireInternship": true
+    }
   }
 ]
