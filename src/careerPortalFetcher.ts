@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { attachStructuredJobFields, isValidJobListing, passesInternshipFilter } from './careerJobFields.js';
 import { buildValidationOptions } from './careerJobValidation.js';
-import { matchesJobKeyword } from './careerKeywordMatch.js';
+import { matchesPortalJobKeyword } from './careerKeywordMatch.js';
 import {
     dedupeJobsGlobally,
     formatJobListings,
@@ -157,7 +157,11 @@ export function aggregateCareerResults(results: CareerFetchResult[], keyword: st
             .map(attachStructuredJobFields)
             .filter((job) => isValidJobListing(job, validation))
             .filter((job) => passesInternshipFilter(job))
-            .filter((job) => matchesJobKeyword(`${job.title} ${job.summary} ${job.requirements || ''}`, keyword))
+            .filter((job) => matchesPortalJobKeyword(
+                `${job.title} ${job.summary} ${job.requirements || ''}`,
+                keyword,
+                result.search
+            ))
             .map((job) => ({
                 ...job,
                 company: job.company || result.company,

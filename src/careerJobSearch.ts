@@ -15,6 +15,7 @@ import {
     getListSearchKeyword,
     matchesJobKeyword,
     matchesJobKeywordAtListStage,
+    matchesPortalJobKeyword,
     scoreJobKeywordMatch
 } from './careerKeywordMatch.js';
 import { isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
@@ -460,7 +461,7 @@ async function enrichJobsWithDetailPages(
                 .trim();
 
             const mergedText = `${candidate.title} ${detailText}`;
-            if (config.matchKeywordOnDetailOnly && !matchesJobKeyword(mergedText, keyword)) {
+            if (config.matchKeywordOnDetailOnly && !matchesPortalJobKeyword(mergedText, keyword, config)) {
                 continue;
             }
 

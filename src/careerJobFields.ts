@@ -19,7 +19,12 @@ export function cleanJobTitle(raw: string): string {
         ?.replace(/\s+/g, ' ')
         .trim() || raw;
 
-    const named = raw.match(/((?:AI|Java|Python|前端|后端|数据|产品)[^\s-]{0,30}(?:实习生|工程师|经理|产品|运营|分析师)[^\s]{0,20})/i);
+    const withIntern = title.match(/(.{2,70}(?:日常实习|实习生))/);
+    if (withIntern) {
+        return withIntern[1].trim().slice(0, 80);
+    }
+
+    const named = raw.match(/((?:AI|Java|Python|前端|后端|数据|产品)[^\s-]{0,40}(?:实习生|工程师|经理|产品|运营|分析师)[^\s]{0,20})/i);
     if (named?.[1]) {
         title = named[1].trim();
     }

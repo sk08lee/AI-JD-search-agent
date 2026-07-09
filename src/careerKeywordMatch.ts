@@ -1,11 +1,19 @@
 const ENGINEER_ROLE_PATTERN = /(?:研发|开发|测试|算法|后端|前端|客户端|服务端|运维|安全|数据|机器学习|应用)工程师/i;
 
 export function keywordTokens(keyword: string): string[] {
-    const split = keyword.split(/[\s·\-_/|+]+/).map((part) => part.trim()).filter(Boolean);
-    if (split.length > 0) return split;
+    const normalized = keyword.trim();
+    const split = normalized.split(/[\s·\-_/|+]+/).map((part) => part.trim()).filter(Boolean);
+    if (split.length > 1) {
+        return split;
+    }
 
-    const chineseParts = keyword.match(/[\u4e00-\u9fa5]{2,}|[a-zA-Z0-9]+/g) || [];
-    return chineseParts.length > 0 ? chineseParts : [keyword];
+    const prefixed = normalized.match(/^([a-zA-Z][a-zA-Z0-9]*)([\u4e00-\u9fa5].+)$/);
+    if (prefixed) {
+        return [prefixed[1], prefixed[2]];
+    }
+
+    const chineseParts = normalized.match(/[\u4e00-\u9fa5]{2,}|[a-zA-Z0-9]+/g) || [];
+    return chineseParts.length > 0 ? chineseParts : [normalized];
 }
 
 export function hasConflictingRole(text: string, keyword: string): boolean {
@@ -48,6 +56,22 @@ export function matchesJobKeywordAtListStage(
     }
 
     return matchesJobKeyword(text, keyword);
+}
+
+export function matchesPortalJobKeyword(
+    text: string,
+    keyword: string,
+    portalSearch?: { listSearchKeyword?: string; matchKeywordOnDetailOnly?: boolean }
+): boolean {
+    if (matchesJobKeyword(text, keyword)) {
+        return true;
+    }
+
+    if (portalSearch?.matchKeywordOnDetailOnly && portalSearch.listSearchKeyword?.trim()) {
+        return matchesJobKeyword(text, portalSearch.listSearchKeyword.trim());
+    }
+
+    return false;
 }
 
 export function matchesJobKeyword(text: string, keyword: string): boolean {
