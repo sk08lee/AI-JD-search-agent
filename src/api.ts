@@ -8,6 +8,7 @@ import { getReportTemplate } from "./reports/templates.js";
 import { commandExists, resolveUvxCommand } from "./commandUtils.js";
 import { fetchCareerPortalPages } from "./careerPortalFetcher.js";
 import { buildMergedReportContext, extractMergedSections } from "./careerContextMerger.js";
+import type { CareerJobType } from "./careerJobSearch.js";
 import fs from "fs";
 import path from "path";
 
@@ -15,11 +16,30 @@ const config = loadConfig();
 const outPath = path.join(process.cwd(), config.output.directory);
 const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 
-export async function generateReport(taskId: string, jobTitle: string, jobCategory?: string): Promise<string> {
+export interface GenerateReportOptions {
+    jobCategory?: string;
+    jobType?: CareerJobType;
+    companies?: string[];
+}
+
+export async function generateReport(
+    taskId: string,
+    jobTitle: string,
+    jobCategoryOrOptions?: string | GenerateReportOptions,
+    options: Omit<GenerateReportOptions, 'jobCategory'> = {}
+): Promise<string> {
     fs.mkdirSync(outPath, { recursive: true });
 
-    const category = jobCategory?.trim() || '实习';
-    const searchTarget = jobCategory ? `${jobCategory} · ${jobTitle}` : jobTitle;
+    const resolvedOptions = typeof jobCategoryOrOptions === 'object'
+        ? jobCategoryOrOptions
+        : { ...options, jobCategory: jobCategoryOrOptions };
+    const hasExplicitCategory = typeof jobCategoryOrOptions === 'object'
+        ? !!resolvedOptions.jobCategory
+        : typeof jobCategoryOrOptions === 'string' && jobCategoryOrOptions.trim().length > 0;
+    const category = resolvedOptions.jobCategory?.trim() || '实习';
+    const jobType = normalizeJobType(resolvedOptions.jobType);
+    const jobTypeLabel = formatJobType(jobType);
+    const searchTarget = hasExplicitCategory ? `${category} · ${jobTitle}` : jobTitle;
 
     const template = taskTemplates[taskId] || {
         id: 'custom',
@@ -37,12 +57,19 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
 
     const ragQuery = `${category} ${jobTitle} 岗位需求 招聘条件 能力要求 技术栈`;
     const ragContext = await retrieveContext(template.knowledgeBaseDir, ragQuery);
-    const careerResults = await fetchCareerPortalPages({ jobTitle, jobCategory: category });
+    const careerResults = await fetchCareerPortalPages({
+        jobTitle,
+        jobCategory: category,
+        jobType,
+        companies: resolvedOptions.companies
+    });
     const mergedContext = buildMergedReportContext({
         ragContext,
         careerResults,
         keyword: jobTitle,
-        jobCategory: category
+        jobCategory: category,
+        jobType,
+        jobTypeLabel
     });
     const context = truncateContext(
         mergedContext,
@@ -75,6 +102,7 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
             .replace(/\{jobCategory\}/g, category)
             .replace(/\{jobTitle\}/g, jobTitle)
             .replace(/\{searchTarget\}/g, searchTarget)
+            .replace(/\{jobTypeLabel\}/g, jobTypeLabel)
             .replace('{reportPath}', reportPath);
         response = await agent.invoke(userPrompt);
     } catch (e: any) {
@@ -90,6 +118,26 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
     }
 
     return response;
+}
+
+function normalizeJobType(jobType: CareerJobType | undefined): CareerJobType {
+    if (jobType === 'campus' || jobType === 'experienced' || jobType === 'all') {
+        return jobType;
+    }
+    return 'internship';
+}
+
+function formatJobType(jobType: CareerJobType): string {
+    switch (jobType) {
+        case 'internship':
+            return '实习';
+        case 'campus':
+            return '校招';
+        case 'experienced':
+            return '社招';
+        case 'all':
+            return '不限类型';
+    }
 }
 
 export function listTasks() {

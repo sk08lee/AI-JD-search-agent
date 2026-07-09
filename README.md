@@ -261,13 +261,17 @@ crontab -e
 ENABLE_AUTO_CAREER_FETCH=1
 CAREER_FETCH_MAX_SOURCES=12
 CAREER_FETCH_ENSURE_ALL_COMPANIES=1
+CAREER_FETCH_CONCURRENCY=3
+CAREER_FETCH_INCLUDE_FAILED_SOURCES=1
 ENABLE_PLAYWRIGHT_FETCH=1
 ```
 
 说明：
 - 搜索关键词仅使用“具体岗位名称”（如 `Java后端开发`），不会拼接岗位类型前缀。
-- 系统会进入招聘官网搜索页，匹配岗位链接并进一步打开详情页提取 JD 摘录。
-- 字节、腾讯、阿里、美团等动态招聘页会通过 Playwright 渲染后再检索具体岗位。
+- 系统会进入招聘官网搜索页，匹配岗位链接并进一步打开详情页提取核心 JD 字段：公司、岗位名、地点、岗位类型、岗位职责、招聘条件和来源 URL。
+- 抓取层支持 DOM、公开 API JSON、前端注水 JSON 和少量历史正则兜底，适合逐步扩展更多公司官网。
+- API 可传入 `jobType`（`internship`、`campus`、`experienced`、`all`）和 `companies` 数组，只检索指定岗位类型或公司。
+- 字节、腾讯、阿里、美团等动态招聘页会通过 Playwright 渲染后再检索具体岗位；请求失败、超时、需要登录或未匹配到岗位时会记录原因。
 - 该能力只抓取公开官网页面，不绕过 BOSS/拉勾等平台的登录或反爬限制。
 
 ### 已提供的阿里云部署文件

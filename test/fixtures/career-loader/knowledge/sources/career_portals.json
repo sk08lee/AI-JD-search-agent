@@ -1,0 +1,12 @@
+[
+  {
+    "company": "示例公司",
+    "channel": "internship",
+    "url": "https://careers.example.com/intern"
+  },
+  {
+    "company": "示例公司",
+    "channel": "campus",
+    "url": "https://careers.example.com/campus"
+  }
+]
