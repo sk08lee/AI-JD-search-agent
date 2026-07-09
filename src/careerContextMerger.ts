@@ -1,21 +1,24 @@
 import type { CareerFetchResult } from './careerPortalFetcher.js';
 import { formatCareerFetchContext } from './careerPortalFetcher.js';
+import type { CareerJobType } from './careerJobSearch.js';
 
 export interface MergeContextOptions {
     ragContext: string;
     careerResults: CareerFetchResult[];
     keyword: string;
     jobCategory?: string;
+    jobType?: CareerJobType;
+    jobTypeLabel?: string;
 }
 
 export function buildMergedReportContext(options: MergeContextOptions): string {
-    const webSection = formatCareerFetchContext(options.careerResults, options.keyword, options.jobCategory);
+    const webSection = formatCareerFetchContext(options.careerResults, options.keyword, options.jobCategory, options.jobType);
     const ragSection = formatRagKnowledgeSection(options.ragContext);
 
     const sections: string[] = [
         '## 结构化检索上下文（供报告生成使用）',
         '以下内容分为两部分：',
-        '- **官网实时岗位**：仅保留招聘条件，必须标注来源 URL，不得编造。',
+        '- **官网实时岗位**：仅保留结构化 JD 字段，必须标注来源 URL，不得编造。',
         '- **本地岗位知识库**：与第一章官网招聘条件一并作为归纳素材，用于生成第二章「能力要求与求职洞察」；不得单独原样堆砌，也不得改写为某公司具体在招岗位。'
     ];
 
@@ -48,13 +51,26 @@ export function formatRagKnowledgeSection(ragContext: string): string {
 }
 
 export function extractMergedSections(context: string): { webSection: string; ragSection: string } {
-    const webMarker = '## 自动检索的公开招聘官网岗位信息';
+    const webMarkers = [
+        '## 自动检索的公开招聘官网实习岗位信息',
+        '## 自动检索的公开招聘官网岗位信息'
+    ];
     const ragMarker = '## 本地岗位知识库召回（归纳素材）';
 
-    const webSection = extractBetween(context, webMarker, ragMarker);
+    const webSection = extractBetweenFirst(context, webMarkers, ragMarker);
     const ragSection = extractBetween(context, ragMarker, null);
 
     return { webSection, ragSection };
+}
+
+function extractBetweenFirst(text: string, startMarkers: string[], endMarker: string | null): string {
+    for (const marker of startMarkers) {
+        const section = extractBetween(text, marker, endMarker);
+        if (section) {
+            return section;
+        }
+    }
+    return '';
 }
 
 function extractBetween(text: string, startMarker: string, endMarker: string | null): string {

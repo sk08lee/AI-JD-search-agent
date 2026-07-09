@@ -36,7 +36,7 @@ async function handleApiGenerate(req: http.IncomingMessage, res: http.ServerResp
 
     req.on('end', async () => {
         try {
-            const { taskId, jobTitle, jobCategory } = JSON.parse(body);
+            const { taskId, jobTitle, jobCategory, jobType, companies } = JSON.parse(body);
 
             if (!jobTitle) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -48,11 +48,19 @@ async function handleApiGenerate(req: http.IncomingMessage, res: http.ServerResp
             const resolvedCategory = typeof jobCategory === 'string' && jobCategory.trim()
                 ? jobCategory.trim()
                 : '实习';
+            const resolvedJobType = normalizeJobType(jobType);
+            const resolvedCompanies = Array.isArray(companies)
+                ? companies.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+                : undefined;
 
             const report = await generateReport(
                 resolvedTaskId,
                 jobTitle,
-                resolvedCategory
+                {
+                    jobCategory: resolvedCategory,
+                    jobType: resolvedJobType,
+                    companies: resolvedCompanies
+                }
             );
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, content: report }));
@@ -114,3 +122,10 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+function normalizeJobType(value: unknown): 'internship' | 'campus' | 'experienced' | 'all' {
+    if (value === 'campus' || value === 'experienced' || value === 'all') {
+        return value;
+    }
+    return 'internship';
+}

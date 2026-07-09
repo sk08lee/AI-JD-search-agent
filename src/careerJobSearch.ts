@@ -19,8 +19,18 @@ import {
     scoreJobKeywordMatch
 } from './careerKeywordMatch.js';
 import { isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
+import {
+    extractJobsFromApiJson,
+    extractJobsFromEmbeddedJson,
+    type PortalJsonExtractionConfig
+} from './careerPortalAdapters.js';
+
+export type CareerJobType = 'internship' | 'campus' | 'experienced' | 'all';
+export type PortalAdapterKind = 'dom' | 'embedded-json' | 'api-json' | 'legacy-regex';
+export type PortalSourceStatus = 'success' | 'no_jobs' | 'timeout' | 'blocked' | 'parser_error' | 'login_required' | 'network_error';
 
 export interface PortalSearchConfig {
+    adapter?: PortalAdapterKind;
     inputSelector?: string;
     submitSelector?: string;
     resultsSelector?: string;
@@ -34,6 +44,7 @@ export interface PortalSearchConfig {
     listSearchKeyword?: string;
     matchKeywordOnDetailOnly?: boolean;
     htmlUrlPatterns?: string[];
+    json?: PortalJsonExtractionConfig;
     maxResults?: number;
     maxDetailPages?: number;
     requireInternship?: boolean;
@@ -48,6 +59,7 @@ export interface CareerJobListing {
     schedule?: string;
     requirements?: string;
     responsibilities?: string;
+    jobType?: CareerJobType;
     company?: string;
     sourceLabel?: string;
 }
@@ -58,6 +70,7 @@ export interface PortalJobSearchResult {
     pageSummary?: string;
     pageHtml?: string;
     error?: string;
+    sourceStatus?: PortalSourceStatus;
 }
 
 const DEFAULT_DETAIL_PATTERNS = [
@@ -83,6 +96,7 @@ export async function searchPortalJobs(options: {
     search?: PortalSearchConfig;
     company?: string;
     sourceLabel?: string;
+    jobType?: CareerJobType;
 }): Promise<PortalJobSearchResult> {
     const config = normalizeSearchConfig(options.search);
 
@@ -94,7 +108,8 @@ export async function searchPortalJobs(options: {
             config,
             options.waitMs || 5000,
             options.company,
-            options.sourceLabel
+            options.sourceLabel,
+            options.jobType
         );
     }
 
@@ -103,7 +118,8 @@ export async function searchPortalJobs(options: {
         options.keyword,
         config,
         options.company,
-        options.sourceLabel
+        options.sourceLabel,
+        options.jobType
     );
 }
 
@@ -175,6 +191,8 @@ function normalizeSearchConfig(search?: PortalSearchConfig): Required<PortalSear
         listSearchKeyword: search?.listSearchKeyword || '',
         matchKeywordOnDetailOnly: search?.matchKeywordOnDetailOnly === true,
         htmlUrlPatterns: search?.htmlUrlPatterns || [],
+        adapter: search?.adapter || 'dom',
+        json: search?.json || { paths: [] },
         maxResults,
         maxDetailPages: Math.max(maxDetailPages, maxResults),
         requireInternship: search?.requireInternship === true,
@@ -189,7 +207,8 @@ async function searchJobsWithPlaywright(
     config: ReturnType<typeof normalizeSearchConfig>,
     waitMs: number,
     company?: string,
-    sourceLabel?: string
+    sourceLabel?: string,
+    jobType?: CareerJobType
 ): Promise<PortalJobSearchResult> {
     return withPlaywrightPage(async (page) => {
         const hasKeywordInSearchUrl = searchUrl.includes(encodeURIComponent(keyword)) || searchUrl.includes(keyword);
@@ -217,7 +236,7 @@ async function searchJobsWithPlaywright(
             await page.locator(config.resultsSelector).first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
         }
 
-        const candidates = await collectJobCandidatesFromPage(page, keyword, config, company);
+        const candidates = await collectJobCandidatesFromPage(page, keyword, config, company, sourceLabel, jobType);
         const jobs = await enrichJobsWithDetailPages(page, candidates, config, waitMs, keyword, company, sourceLabel);
         const pageSummary = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim().slice(0, 1200);
         const pageHtml = jobs.length === 0
@@ -228,7 +247,8 @@ async function searchJobsWithPlaywright(
             searchUrl: page.url(),
             jobs,
             pageSummary,
-            pageHtml
+            pageHtml,
+            sourceStatus: jobs.length > 0 ? 'success' : 'no_jobs'
         };
     });
 }
@@ -238,7 +258,8 @@ async function searchJobsWithHtml(
     keyword: string,
     config: ReturnType<typeof normalizeSearchConfig>,
     company?: string,
-    sourceLabel?: string
+    sourceLabel?: string,
+    jobType?: CareerJobType
 ): Promise<PortalJobSearchResult> {
     try {
         const controller = new AbortController();
@@ -258,7 +279,10 @@ async function searchJobsWithHtml(
         }
 
         const html = await response.text();
-        const candidates = extractJobCandidatesFromHtml(html, searchUrl, keyword, config);
+        const adapterJobs = await extractJobsWithConfiguredAdapter(html, searchUrl, config, company, sourceLabel, jobType);
+        const candidates = adapterJobs.length > 0
+            ? adapterJobs
+            : extractJobCandidatesFromHtml(html, searchUrl, keyword, config);
         const jobs = await fetchHtmlJobDetails(candidates.slice(0, config.maxResults), keyword, company, sourceLabel);
 
         return {
@@ -270,11 +294,18 @@ async function searchJobsWithHtml(
                     sourceLabel: job.sourceLabel || sourceLabel
                 })
             ),
-            pageSummary: htmlToText(html).slice(0, 1200)
+            pageSummary: htmlToText(html).slice(0, 1200),
+            sourceStatus: (jobs.length > 0 || candidates.length > 0) ? 'success' : 'no_jobs'
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return { searchUrl, jobs: [], error: message.includes('abort') ? '请求超时' : message };
+        const isTimeout = message.includes('abort');
+        return {
+            searchUrl,
+            jobs: [],
+            error: isTimeout ? '请求超时' : message,
+            sourceStatus: isTimeout ? 'timeout' : 'network_error'
+        };
     }
 }
 
@@ -315,7 +346,9 @@ async function collectJobCandidatesFromPage(
     page: Page,
     keyword: string,
     config: ReturnType<typeof normalizeSearchConfig>,
-    company?: string
+    company?: string,
+    sourceLabel?: string,
+    jobType?: CareerJobType
 ): Promise<CareerJobListing[]> {
     const collected: CareerJobListing[] = [];
 
@@ -349,6 +382,8 @@ async function collectJobCandidatesFromPage(
     }
 
     const html = await page.content();
+    collected.push(...extractJobsWithConfiguredAdapter(html, page.url(), config, company, sourceLabel, jobType));
+
     if (config.htmlUrlPatterns.length > 0) {
         collected.push(...extractCandidatesFromHtmlContent(html, page.url(), config.htmlUrlPatterns, config.maxResults));
     }
@@ -361,6 +396,41 @@ async function collectJobCandidatesFromPage(
     }
 
     return dedupeJobCandidates(collected, keyword, config);
+}
+
+function extractJobsWithConfiguredAdapter(
+    html: string,
+    baseUrl: string,
+    config: ReturnType<typeof normalizeSearchConfig>,
+    company?: string,
+    sourceLabel?: string,
+    jobType?: CareerJobType
+): CareerJobListing[] {
+    if (!config.json.paths.length) {
+        return [];
+    }
+
+    if (config.adapter === 'api-json') {
+        const payload = parseJson(html);
+        if (payload === undefined) {
+            return [];
+        }
+        return extractJobsFromApiJson(payload, baseUrl, config.json, {
+            company,
+            sourceLabel,
+            jobType
+        });
+    }
+
+    if (config.adapter === 'embedded-json' || config.adapter === 'dom') {
+        return extractJobsFromEmbeddedJson(html, baseUrl, config.json, {
+            company,
+            sourceLabel,
+            jobType
+        });
+    }
+
+    return [];
 }
 
 function extractCandidatesFromHtmlContent(
@@ -624,4 +694,12 @@ function htmlToText(html: string): string {
         .replace(/&amp;/g, '&')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function parseJson(text: string): unknown {
+    try {
+        return JSON.parse(text);
+    } catch {
+        return undefined;
+    }
 }
