@@ -40,7 +40,7 @@ export interface CareerFetchResult {
     search?: PortalSearchConfig;
 }
 
-const DEFAULT_MAX_SOURCES = 10;
+const DEFAULT_MAX_SOURCES = 12;
 
 export function loadCareerPortals(): CareerPortal[] {
     const filePath = path.join(process.cwd(), 'knowledge', 'sources', 'career_portals.json');
@@ -57,39 +57,47 @@ export function loadCareerPortals(): CareerPortal[] {
     }
 }
 
-export function selectPortalTargets(portals: CareerPortal[], maxSources: number): CareerPortal[] {
+export function selectOnePortalPerCompany(portals: CareerPortal[]): CareerPortal[] {
     const channelOrder = ['campus', 'unified', 'social', 'experienced'];
-    const selected: CareerPortal[] = [];
-    const used = new Set<string>();
-
-    for (const channel of channelOrder) {
-        for (const portal of portals) {
-            if (selected.length >= maxSources) {
-                return selected;
-            }
-
-            const key = `${portal.company}:${portal.url}`;
-            const portalChannel = portal.channel || 'unified';
-            if (portalChannel === channel && !used.has(key)) {
-                selected.push(portal);
-                used.add(key);
-            }
-        }
-    }
+    const byCompany = new Map<string, CareerPortal[]>();
 
     for (const portal of portals) {
-        if (selected.length >= maxSources) {
-            break;
-        }
+        const list = byCompany.get(portal.company) ?? [];
+        list.push(portal);
+        byCompany.set(portal.company, list);
+    }
 
-        const key = `${portal.company}:${portal.url}`;
-        if (!used.has(key)) {
-            selected.push(portal);
-            used.add(key);
+    const companyOrder: string[] = [];
+    for (const portal of portals) {
+        if (!companyOrder.includes(portal.company)) {
+            companyOrder.push(portal.company);
         }
     }
 
-    return selected;
+    return companyOrder.map((company) => {
+        const companyPortals = byCompany.get(company) ?? [];
+        for (const channel of channelOrder) {
+            const match = companyPortals.find((portal) => (portal.channel || 'unified') === channel);
+            if (match) return match;
+        }
+        return companyPortals[0];
+    }).filter((portal): portal is CareerPortal => !!portal);
+}
+
+export function selectPortalTargets(portals: CareerPortal[], maxSources: number): CareerPortal[] {
+    const onePerCompany = selectOnePortalPerCompany(portals);
+    const ensureAllCompanies = process.env.CAREER_FETCH_ENSURE_ALL_COMPANIES !== '0';
+
+    if (ensureAllCompanies) {
+        if (maxSources > 0 && maxSources < onePerCompany.length) {
+            console.warn(
+                `[CareerFetch] CAREER_FETCH_MAX_SOURCES=${maxSources} 小于公司数 ${onePerCompany.length}，已优先保证每家公司至少搜索 1 个入口`
+            );
+        }
+        return onePerCompany;
+    }
+
+    return onePerCompany.slice(0, maxSources > 0 ? maxSources : onePerCompany.length);
 }
 
 export function buildPortalTargets(portals: CareerPortal[], keyword: string, maxSources: number): Array<CareerPortal & { targetUrl: string }> {
@@ -117,6 +125,7 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
     }
 
     const targets = buildPortalTargets(portals, keyword, maxSources);
+    console.log(`[CareerFetch] keyword="${keyword}" searching ${targets.length} companies: ${targets.map((t) => t.company).join('、')}`);
     const results: CareerFetchResult[] = [];
 
     for (const target of targets) {
