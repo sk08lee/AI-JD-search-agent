@@ -15,7 +15,7 @@ const REQUIREMENT_SECTION_PATTERNS = [
 
 export function cleanJobTitle(raw: string): string {
     let title = raw
-        .split(/日常实习|职位 ID|职位ID|更新于|岗位职责|职位要求/i)[0]
+        .split(/职位 ID|职位ID|更新于|岗位职责|职位要求/i)[0]
         ?.replace(/\s+/g, ' ')
         .trim() || raw;
 
@@ -57,8 +57,14 @@ export function attachStructuredJobFields(job: CareerJobListing): CareerJobListi
 }
 
 export function isInternshipJobTitle(title: string): boolean {
-    const normalized = cleanJobTitle(title) || title.replace(/\s+/g, ' ').trim();
-    return /实习/.test(normalized);
+    const raw = title.replace(/\s+/g, ' ').trim();
+    if (!raw || raw === '岗位详情') {
+        return false;
+    }
+    if (/实习/.test(raw)) {
+        return true;
+    }
+    return /实习/.test(cleanJobTitle(raw));
 }
 
 export function passesInternshipFilter(job: CareerJobListing): boolean {

@@ -1,5 +1,10 @@
 import type { Page } from 'playwright';
-import { attachStructuredJobFields, formatStructuredJobListing, isValidJobListing } from './careerJobFields.js';
+import { attachStructuredJobFields, formatStructuredJobListing, isInternshipJobTitle, isValidJobListing } from './careerJobFields.js';
+import {
+    extractCompanyCandidates,
+    extractVisibleListTitles,
+    pickDetailTitle
+} from './careerPortalCollectors.js';
 import {
     buildJobDedupeKey,
     buildValidationOptions,
@@ -210,7 +215,7 @@ async function searchJobsWithPlaywright(
             await page.locator(config.resultsSelector).first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
         }
 
-        const candidates = await collectJobCandidatesFromPage(page, keyword, config);
+        const candidates = await collectJobCandidatesFromPage(page, keyword, config, company);
         const jobs = await enrichJobsWithDetailPages(page, candidates, config, waitMs, keyword, company, sourceLabel);
         const pageSummary = (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim().slice(0, 1200);
 
@@ -303,7 +308,8 @@ async function tryInteractiveSearch(page: Page, keyword: string, config: ReturnT
 async function collectJobCandidatesFromPage(
     page: Page,
     keyword: string,
-    config: ReturnType<typeof normalizeSearchConfig>
+    config: ReturnType<typeof normalizeSearchConfig>,
+    company?: string
 ): Promise<CareerJobListing[]> {
     const collected: CareerJobListing[] = [];
 
@@ -336,9 +342,16 @@ async function collectJobCandidatesFromPage(
         })));
     }
 
-    if (collected.length === 0 && config.htmlUrlPatterns.length > 0) {
-        const html = await page.content();
+    const html = await page.content();
+    if (config.htmlUrlPatterns.length > 0) {
         collected.push(...extractCandidatesFromHtmlContent(html, page.url(), config.htmlUrlPatterns, config.maxResults));
+    }
+
+    if (company) {
+        collected.push(...extractCompanyCandidates(company, html, page.url(), config.maxResults));
+        if (['腾讯', '美团', '京东'].includes(company)) {
+            collected.push(...await extractVisibleListTitles(page, config.maxResults));
+        }
     }
 
     return dedupeJobCandidates(collected, keyword, config);
@@ -451,13 +464,11 @@ async function enrichJobsWithDetailPages(
                 continue;
             }
 
-            const detailTitle = detailText.split('\n').map((line) => line.trim()).find((line) =>
-                line.length >= 4 && line.length <= 80 && !/^(首页|登录|投递|分享)/.test(line)
-            );
+            const detailTitle = pickDetailTitle(detailText, candidate.title);
 
             enriched.push(attachStructuredJobFields({
                 ...candidate,
-                title: detailTitle && candidate.title === '岗位详情' ? detailTitle : candidate.title,
+                title: detailTitle,
                 company: candidate.company || company,
                 sourceLabel: candidate.sourceLabel || sourceLabel,
                 detailExcerpt: detailText.slice(0, 2400)
@@ -569,6 +580,13 @@ function dedupeJobCandidates(
         if (seen.has(key)) continue;
         if (!isLikelyJobLink(candidate.title, candidate.detailUrl, config.validation)) continue;
         if (!matchesJobKeywordAtListStage(`${candidate.title} ${candidate.summary}`, keyword, listMatchOptions)) continue;
+        if (
+            process.env.CAREER_INTERNSHIP_ONLY !== '0'
+            && candidate.title !== '岗位详情'
+            && !isInternshipJobTitle(candidate.title)
+        ) {
+            continue;
+        }
         seen.add(key);
         filtered.push(candidate);
     }

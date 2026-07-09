@@ -6,12 +6,16 @@
     "url": "https://jobs.bytedance.com/campus",
     "searchUrl": "https://jobs.bytedance.com/campus/position?keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 6000,
+    "waitMs": 8000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
+      "waitForSelector": "a[href*='/campus/position/'], [class*='position-list']",
+      "listLinkSelector": "a[href*='/campus/position/'][href*='detail']",
       "detailLinkPatterns": ["position", "detail"],
+      "htmlUrlPatterns": ["https://jobs\\.bytedance\\.com/campus/position/\\d+/detail[^\"'\\s<]*", "/campus/position/\\d+/detail"],
       "validDetailUrlPatterns": ["position/\\d+/detail", "/detail"],
+      "detailContentSelector": "[class*='job-detail'], [class*='position-detail'], main",
       "requireInternship": true
     }
   },
@@ -22,7 +26,7 @@
     "url": "https://join.qq.com/post.html?query=p_2",
     "searchUrl": "https://join.qq.com/post.html?query={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 8000,
+    "waitMs": 10000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
@@ -30,9 +34,9 @@
       "waitForSelector": "[class*='post'], [class*='job-list'], [class*='position']",
       "listLinkSelector": "a[href*='post_detail.html'], a[href*='postid='], a[href*='postId=']",
       "detailLinkPatterns": ["post_detail.html", "postid=", "postId="],
-      "htmlUrlPatterns": ["https://join\\.qq\\.com/post_detail\\.html\\?postid=\\d+", "postid=\\d+", "postId=\\d+"],
+      "htmlUrlPatterns": ["post_detail\\.html\\?postid=\\d+", "postid=\\d+", "postId=\\d+", "data-postid=\"\\d+\""],
       "validDetailUrlPatterns": ["post_detail\\.html", "postid=", "postId="],
-      "detailContentSelector": ".job-detail, .post-detail, main",
+      "detailContentSelector": ".job-detail, .post-detail, main, [class*='detail']",
       "noiseUrlParts": ["post\\.html\\?query=p_2$", "javascript:"],
       "requireInternship": true
     }
@@ -44,12 +48,12 @@
     "url": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002",
     "searchUrl": "https://campus-talent.alibaba.com/campus/position?batchId=100000540002&keywords={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 8000,
+    "waitMs": 10000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
       "waitForSelector": "a[href*='/campus/position/'], [class*='position-list']",
-      "listLinkSelector": "a[href*='/campus/position/'][href*='deptCodes'], a[href*='/campus/position/'][href*='positionId']",
+      "listLinkSelector": "a[href*='/campus/position/'][href*='positionId'], a[href*='/campus/position/'][href*='deptCodes']",
       "detailLinkPatterns": ["/campus/position/", "positionId="],
       "htmlUrlPatterns": ["https://campus-talent\\.alibaba\\.com/campus/position/\\d+[^\"'\\s<]*"],
       "validDetailUrlPatterns": ["/campus/position/\\d+", "positionId="],
@@ -65,7 +69,7 @@
     "url": "https://zhaopin.meituan.com/web/home",
     "searchUrl": "https://zhaopin.meituan.com/web/position?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 8000,
+    "waitMs": 10000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
@@ -73,7 +77,7 @@
       "waitForSelector": "[class*='job-list'], [class*='position-list'], a[href*='/web/position/detail']",
       "listLinkSelector": "a[href*='/web/position/detail'], a[href*='jobUnionId=']",
       "detailLinkPatterns": ["/web/position/detail", "jobUnionId="],
-      "htmlUrlPatterns": ["https://zhaopin\\.meituan\\.com/web/position/detail\\?[^\"'\\s<]+"],
+      "htmlUrlPatterns": ["https://zhaopin\\.meituan\\.com/web/position/detail[^\"'\\s<]+", "jobUnionId=[^\"'&\\s<]+"],
       "validDetailUrlPatterns": ["/web/position/detail", "jobUnionId="],
       "detailContentSelector": "[class*='job-detail'], [class*='position-detail'], main",
       "noiseUrlParts": ["/web/home", "/web/social", "privacy"],
@@ -87,13 +91,16 @@
     "url": "https://talent.baidu.com/jobs/list",
     "searchUrl": "https://talent.baidu.com/jobs/list?query={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 6000,
+    "waitMs": 8000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
+      "waitForSelector": "a[href*='/jobs/detail'], [class*='job-list']",
+      "listLinkSelector": "a[href*='/jobs/detail/']",
       "detailLinkPatterns": ["/jobs/detail", "/job/", "J\\d+"],
-      "htmlUrlPatterns": ["https://talent\\.baidu\\.com/jobs/detail/[^\"'\\s<]+", "/jobs/detail/"],
+      "htmlUrlPatterns": ["https://talent\\.baidu\\.com/jobs/detail/[^\"'\\s<]+", "/jobs/detail/[^\"'\\s<]+"],
       "validDetailUrlPatterns": ["/jobs/detail", "/job/", "J\\d+"],
+      "detailContentSelector": "[class*='job-detail'], main",
       "requireInternship": true
     }
   },
@@ -104,11 +111,13 @@
     "url": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN",
     "searchUrl": "https://career.huawei.com/cn/campus-recruitment-job-list?recruitmentType=INTERN&keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 8000,
+    "waitMs": 10000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
+      "waitForSelector": "a[href*='job'], [class*='job-list']",
       "detailLinkPatterns": ["job", "position", "detail", "recruitment"],
+      "htmlUrlPatterns": ["https://career\\.huawei\\.com[^\"'\\s<]*(?:job|position|detail)[^\"'\\s<]*"],
       "validDetailUrlPatterns": ["/job/", "position", "detail", "jobId="],
       "requireInternship": true
     }
@@ -120,7 +129,7 @@
     "url": "https://campus.jd.com/#/jobs",
     "searchUrl": "https://campus.jd.com/#/jobs?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 9000,
+    "waitMs": 12000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
@@ -142,11 +151,13 @@
     "url": "https://hr.163.com/job-list.html?workType=1",
     "searchUrl": "https://hr.163.com/job-list.html?workType=1&keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 7000,
+    "waitMs": 8000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
+      "listLinkSelector": "a[href*='/job/'], a[href*='position']",
       "detailLinkPatterns": ["job", "position", "detail"],
+      "htmlUrlPatterns": ["https://hr\\.163\\.com[^\"'\\s<]*(?:job|position|detail)[^\"'\\s<]*"],
       "validDetailUrlPatterns": ["/job/", "position", "detail", "jobId="],
       "requireInternship": true
     }
@@ -162,8 +173,11 @@
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
-      "detailLinkPatterns": ["job", "position", "internship", "detail"],
-      "validDetailUrlPatterns": ["/job/", "position", "detail", "internship"],
+      "listLinkSelector": "a[href*='/internship/position/'][href*='detail']",
+      "detailLinkPatterns": ["internship", "position", "detail"],
+      "htmlUrlPatterns": ["https://xiaomi\\.jobs\\.f\\.mioffice\\.cn/internship/position/\\d+/detail[^\"'\\s<]*"],
+      "validDetailUrlPatterns": ["/internship/position/", "detail"],
+      "detailContentSelector": "[class*='job-detail'], main",
       "requireInternship": true
     }
   },
@@ -174,11 +188,12 @@
     "url": "https://hr.sensetime.com/edu/",
     "searchUrl": "https://hr.sensetime.com/edu/?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 7000,
+    "waitMs": 8000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
       "detailLinkPatterns": ["job", "position", "campus", "detail"],
+      "htmlUrlPatterns": ["https://hr\\.sensetime\\.com[^\"'\\s<]*(?:job|position|detail)[^\"'\\s<]*"],
       "validDetailUrlPatterns": ["/job/", "position", "detail"],
       "requireInternship": true
     }
@@ -190,12 +205,13 @@
     "url": "https://iflytek.zhiye.com/intern/jobs",
     "searchUrl": "https://iflytek.zhiye.com/intern/jobs?keyword={keyword}",
     "fetchMode": "playwright",
-    "waitMs": 7000,
+    "waitMs": 8000,
     "search": {
       "listSearchKeyword": "产品经理",
       "matchKeywordOnDetailOnly": true,
       "detailLinkPatterns": ["job", "position", "intern", "detail"],
-      "validDetailUrlPatterns": ["/job/", "position", "intern", "detail"],
+      "htmlUrlPatterns": ["https://iflytek\\.zhiye\\.com/intern/[^\"'\\s<]+"],
+      "validDetailUrlPatterns": ["/intern/", "position", "detail"],
       "requireInternship": true
     }
   }
