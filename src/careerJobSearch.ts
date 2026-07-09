@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { attachStructuredJobFields, formatStructuredJobListing } from './careerJobFields.js';
+import { attachStructuredJobFields, formatStructuredJobListing, isValidJobListing } from './careerJobFields.js';
 import { fetchPageWithPlaywright, isPlaywrightFetchEnabled, withPlaywrightPage } from './playwrightFetcher.js';
 
 export interface PortalSearchConfig {
@@ -58,13 +58,21 @@ export async function searchPortalJobs(options: {
 }
 
 export function formatJobListings(jobs: CareerJobListing[]): string {
-    if (jobs.length === 0) {
-        return '';
+    const validJobs = jobs
+        .map(attachStructuredJobFields)
+        .filter(isValidJobListing);
+
+    const lines: string[] = [];
+    let index = 0;
+    for (const job of validJobs) {
+        const formatted = formatStructuredJobListing(job, index);
+        if (formatted) {
+            lines.push(formatted);
+            index += 1;
+        }
     }
 
-    return jobs
-        .map((job, index) => formatStructuredJobListing(job, index))
-        .join('\n\n');
+    return lines.join('\n\n');
 }
 
 function normalizeSearchConfig(search?: PortalSearchConfig): Required<PortalSearchConfig> {
@@ -312,6 +320,7 @@ function dedupeJobCandidates(candidates: CareerJobListing[], keyword: string, ma
     for (const candidate of candidates) {
         const key = candidate.detailUrl.split('?')[0];
         if (seen.has(key)) continue;
+        if (!isLikelyJobLink(candidate)) continue;
         if (!matchesKeyword(`${candidate.title} ${candidate.summary}`, keyword)) continue;
         seen.add(key);
         filtered.push(candidate);
@@ -326,12 +335,26 @@ function dedupeJobCandidates(candidates: CareerJobListing[], keyword: string, ma
     for (const candidate of candidates) {
         const key = candidate.detailUrl.split('?')[0];
         if (seen.has(key)) continue;
+        if (!isLikelyJobLink(candidate)) continue;
         seen.add(key);
         fallback.push(candidate);
         if (fallback.length >= maxResults) break;
     }
 
     return fallback;
+}
+
+function isLikelyJobLink(candidate: CareerJobListing): boolean {
+    const title = candidate.title.trim();
+    if (/^(首页|隐私政策|招聘动态|校园招聘|社会招聘|加入我们|关于我们|招聘职位|相关职位)$/i.test(title)) {
+        return false;
+    }
+
+    if (/privacy|rules-center|#\/$|#\/news|#\/jobs$/i.test(candidate.detailUrl)) {
+        return false;
+    }
+
+    return /\/detail|\/job\/|position\/\d+/i.test(candidate.detailUrl);
 }
 
 function matchesKeyword(text: string, keyword: string): boolean {

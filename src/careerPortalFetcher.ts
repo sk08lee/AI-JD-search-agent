@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { attachStructuredJobFields, isValidJobListing } from './careerJobFields.js';
 import { formatJobListings, searchPortalJobs, type CareerJobListing, type PortalSearchConfig } from './careerJobSearch.js';
 import { isPlaywrightFetchEnabled } from './playwrightFetcher.js';
 
@@ -117,7 +118,13 @@ export async function fetchCareerPortalPages(options: CareerFetchOptions): Promi
 }
 
 export function formatCareerFetchContext(results: CareerFetchResult[], keyword: string, jobCategory?: string): string {
-    const matchedSources = results.filter((item) => item.jobs.length > 0);
+    const matchedSources = results
+        .map((item) => ({
+            ...item,
+            jobs: item.jobs.map(attachStructuredJobFields).filter(isValidJobListing)
+        }))
+        .filter((item) => item.jobs.length > 0);
+
     if (matchedSources.length === 0) {
         return '';
     }
@@ -132,12 +139,15 @@ export function formatCareerFetchContext(results: CareerFetchResult[], keyword: 
         '## 自动检索的公开招聘官网岗位信息',
         categoryLine,
         `共检索到 ${totalJobs} 条具体岗位信息（仅展示匹配岗位数大于 0 的公司）。`,
-        '每个岗位仅保留：工作（实习）地点、工作（实习）时间、招聘条件、工作（实习）内容。'
+        '每个岗位仅保留：招聘条件 / 招聘要求 / 岗位要求。'
     ];
 
     for (const item of matchedSources) {
         const title = item.label ? `${item.company} - ${item.label}` : item.company;
-        sections.push(`### ${title}\n\n${formatJobListings(item.jobs)}`);
+        const listings = formatJobListings(item.jobs);
+        if (listings) {
+            sections.push(`### ${title}\n\n${listings}`);
+        }
     }
 
     return sections.join('\n\n');

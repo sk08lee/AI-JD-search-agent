@@ -3,6 +3,7 @@ import Agent from "./Agent.js";
 import EmbeddingRetriever from "./EmbeddingRetriever.js";
 import { loadConfig } from "./config/index.js";
 import { taskTemplates, TaskTemplate } from "./tasks/index.js";
+import { requirementsOnlyUserPrompt } from "./tasks/requirementsOnlyPrompt.js";
 import { getReportTemplate } from "./reports/templates.js";
 import { commandExists, resolveUvxCommand } from "./commandUtils.js";
 import { fetchCareerPortalPages, formatCareerFetchContext } from "./careerPortalFetcher.js";
@@ -25,33 +26,7 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
         description: `搜索 ${searchTarget} 岗位需求`,
         systemPrompt: `你是一个严谨的求职研究助手。你需要区分事实、推断和建议。
 涉及岗位信息时，优先引用公开来源或本地知识库内容；如果信息不足，明确提醒用户补充来源。`,
-        userPrompt: `你是一个 AI Agent 岗位搜索助手，目标用户是一名计算机专业在读研究生，正在准备投递 {jobCategory} 相关岗位，具体目标岗位为 {jobTitle}。
-
-请优先结合我提供的本地 context 和系统自动检索到的具体岗位条目，整理"{searchTarget}"相关岗位需求。
-报告编写规则：
-1. 匹配岗位数为 0 的公司不要写入报告，直接跳过。
-2. 每个具体岗位只保留以下 4 项：工作（实习）地点、工作（实习）时间、招聘条件、工作（实习）内容。
-3. 不要输出页面摘要、匹配岗位数统计表、未能抓取的来源列表。
-4. 如果 context 中已包含结构化岗位信息，请优先引用并标注来源 URL；不要编造具体公司正在招聘的岗位。
-
-请把岗位按三类组织：
-1. 实习 internship
-2. 校招 campus
-3. 社招 experienced
-
-请输出一份中文 Markdown 岗位需求报告，保存到 {reportPath}。
-
-报告必须包含：
-- 岗位搜索概览
-- 实习 / 校招 / 社招岗位差异
-- 高频能力要求
-- 高频技术关键词
-- 常见项目经历要求
-- 对计算机研究生的简历优化建议
-- 可作为简历包装的匹配点
-- 信息来源或待补充来源
-
-不要编造具体公司正在招聘的岗位。如果无法读取某个来源，请明确标注"来源不可访问 / 需要人工补充"。`,
+        userPrompt: requirementsOnlyUserPrompt,
         reportTemplate: 'job-demand-report',
         knowledgeBaseDir: 'knowledge/jobs/general'
     };
@@ -62,7 +37,7 @@ export async function generateReport(taskId: string, jobTitle: string, jobCatego
     const ragContext = await retrieveContext(template.knowledgeBaseDir);
     const careerResults = await fetchCareerPortalPages({ jobTitle, jobCategory: category });
     const webContext = formatCareerFetchContext(careerResults, jobTitle, category);
-    const context = [ragContext, webContext].filter(Boolean).join('\n\n---\n\n');
+    const context = truncateContext([ragContext, webContext].filter(Boolean).join('\n\n---\n\n'));
 
     if (careerResults.length > 0) {
         const successCount = careerResults.filter((item) => item.status === 'success').length;
@@ -154,6 +129,16 @@ function collectMarkdownFiles(dir: string): string[] {
 
 function buildGenericFallbackReport(context: string, error: unknown, jobTitle: string, jobCategory?: string): string {
     const message = sanitizeErrorMessage(error);
+    const careerSection = extractCareerSection(context);
+
+    if (careerSection) {
+        return `# ${jobTitle}岗位需求报告
+
+> 说明：LLM 调用失败（${message}），以下内容由系统自动抓取的招聘官网信息直接整理。
+
+${careerSection}`;
+    }
+
     const categoryLine = jobCategory && jobCategory !== jobTitle
         ? `目标岗位类型为 ${jobCategory}，具体岗位为 ${jobTitle}。`
         : `目标岗位为 ${jobTitle}。`;
@@ -162,65 +147,36 @@ function buildGenericFallbackReport(context: string, error: unknown, jobTitle: s
 
 > 生成说明：LLM 调用失败，以下报告由本地岗位知识库降级生成。失败原因：${message}
 
-## 1. 岗位搜索概览
+## 岗位搜索概览
 
 本次搜索面向计算机专业研究生，${categoryLine}由于在线 LLM 接口不可用，本报告仅基于本地 RAG 召回内容生成。
-
-## 2. 实习 / 校招 / 社招岗位差异
-
-### 实习 internship
-
-- 更关注学习能力、基础能力、工具使用经验和项目实践。
-- 常见任务包括参与项目、文档整理和基础工作。
-- 具备相关技术基础或项目经历会加分。
-
-### 校招 campus
-
-- 更关注完整项目经历、技术理解能力和团队协作潜力。
-- 需要能独立完成任务、方案设计和问题排查。
-- 相关专业背景有优势。
-
-### 社招 experienced
-
-- 更关注业务落地、系统设计和领导力。
-- 需要理解复杂系统架构、技术选型和团队管理。
-- 通常要求有完整项目经验。
-
-## 3. 高频能力要求
-
-- 专业技能
-- 问题解决
-- 团队协作
-- 学习能力
-- 技术文档
-
-## 4. 高频技术关键词
-
-根据岗位类型有所不同，通常包括数据结构、算法、数据库、网络等基础技能。
-
-## 5. 常见项目经历要求
-
-- 有完整项目开发或实践经历。
-- 能说明技术方案如何解决实际问题。
-- 能输出技术文档和代码。
-
-## 6. 简历优化建议
-
-- 将项目经历转化为具体成果。
-- 强调技术深度和广度。
-- 突出"问题 - 方案 - 实现 - 优化"的完整思路。
-
-## 7. 信息来源
-
-- 已使用：本地岗位知识库。
-- 当前限制：LLM API 调用失败，未执行在线信息抽取。
 
 ## 附：本地 RAG 召回片段
 
 \`\`\`md
-${context}
+${context.slice(0, 3000)}
 \`\`\`
 `;
+}
+
+function extractCareerSection(context: string): string {
+    const marker = '## 自动检索的公开招聘官网岗位信息';
+    if (!context.includes(marker)) {
+        return '';
+    }
+
+    const start = context.indexOf(marker);
+    const rest = context.slice(start);
+    const end = rest.indexOf('\n\n---\n\n');
+    return end >= 0 ? rest.slice(0, end).trim() : rest.trim();
+}
+
+function truncateContext(context: string, maxChars = 10000): string {
+    if (context.length <= maxChars) {
+        return context;
+    }
+
+    return `${context.slice(0, maxChars)}\n\n[上下文已截断以适配 LLM 输入长度限制]`;
 }
 
 function sanitizeErrorMessage(error: unknown): string {
