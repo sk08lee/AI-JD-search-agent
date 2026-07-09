@@ -13,15 +13,12 @@ import { taskTemplates, listTasks, TaskTemplate } from "./tasks/index.js";
 import { getReportTemplate } from "./reports/templates.js";
 
 const config = loadConfig();
-const outPath = path.join(process.cwd(), config.output.directory);
 const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 
 const uvxCommand = resolveUvxCommand();
 const fetchMCP = new MCPClient("mcp-server-fetch", uvxCommand, ['mcp-server-fetch']);
-const fileMCP = new MCPClient("mcp-server-file", "npx", ['-y', '@modelcontextprotocol/server-filesystem', outPath]);
 
 async function main() {
-    fs.mkdirSync(outPath, { recursive: true });
 
     const rl = readline.createInterface({
         input: process.stdin,
@@ -62,7 +59,7 @@ async function main() {
 2. 校招 campus
 3. 社招 experienced
 
-请输出一份中文 Markdown 岗位需求报告，保存到 {reportPath}。
+请直接输出完整中文 Markdown 岗位需求报告正文，供用户复制；不要使用文件读写工具，不要说明保存路径或生成过程。
 
 报告必须包含：
 - 岗位搜索概览
@@ -86,9 +83,6 @@ async function main() {
 
     console.log(`\n开始搜索 "${jobTitle}" 岗位需求...\n`);
 
-    const reportFileName = `${template.id}-job-demand-report.md`;
-    const reportPath = path.join(outPath, reportFileName);
-
     const ragContext = await retrieveContext(template.knowledgeBaseDir);
     const careerResults = await fetchCareerPortalPages({ jobTitle });
     const webContext = formatCareerFetchContext(careerResults, jobTitle);
@@ -104,7 +98,7 @@ async function main() {
 
     const enableFetchMCP = config.tools.enableFetch;
     const canUseFetchMCP = enableFetchMCP && commandExists(uvxCommand);
-    const mcpClients = canUseFetchMCP ? [fetchMCP, fileMCP] : [fileMCP];
+    const mcpClients = canUseFetchMCP ? [fetchMCP] : [];
 
     if (!enableFetchMCP) {
         console.warn('[MCP degraded] Fetch MCP is disabled. Set ENABLE_FETCH_MCP=1 to enable public webpage fetching.');
@@ -117,9 +111,7 @@ async function main() {
 
     try {
         await agent.init();
-        const userPrompt = template.userPrompt
-            .replace('{jobTitle}', jobTitle)
-            .replace('{reportPath}', reportPath);
+        const userPrompt = template.userPrompt.replace('{jobTitle}', jobTitle);
         response = await agent.invoke(userPrompt);
     } catch (e: any) {
         console.warn(`[LLM degraded] ${sanitizeErrorMessage(e)}`);
@@ -129,15 +121,11 @@ async function main() {
         await agent.close();
     }
 
-    if (!fs.existsSync(reportPath) && response) {
-        fs.writeFileSync(reportPath, response, 'utf-8');
-        console.warn(`\n[Fallback write] Report saved directly to ${reportPath}`);
-    }
-
     console.log(`\n========================================`);
-    console.log(`报告已生成：${reportFileName}`);
-    console.log(`路径：${reportPath}`);
-    console.log('========================================');
+    console.log('报告正文（可直接复制）：');
+    console.log('========================================\n');
+    console.log(response);
+    console.log('\n========================================');
 }
 
 function question(rl: readline.Interface, prompt: string): Promise<string> {

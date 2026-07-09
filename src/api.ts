@@ -13,7 +13,6 @@ import fs from "fs";
 import path from "path";
 
 const config = loadConfig();
-const outPath = path.join(process.cwd(), config.output.directory);
 const knowledgeDir = path.join(process.cwd(), config.knowledge.directory);
 
 export interface GenerateReportOptions {
@@ -28,8 +27,6 @@ export async function generateReport(
     jobCategoryOrOptions?: string | GenerateReportOptions,
     options: Omit<GenerateReportOptions, 'jobCategory'> = {}
 ): Promise<string> {
-    fs.mkdirSync(outPath, { recursive: true });
-
     const resolvedOptions = typeof jobCategoryOrOptions === 'object'
         ? jobCategoryOrOptions
         : { ...options, jobCategory: jobCategoryOrOptions };
@@ -51,9 +48,6 @@ export async function generateReport(
         reportTemplate: 'job-demand-report',
         knowledgeBaseDir: 'knowledge/jobs/general'
     };
-
-    const reportFileName = `${taskId}-job-demand-report.md`;
-    const reportPath = path.join(outPath, reportFileName);
 
     const ragQuery = `${category} ${jobTitle} 岗位需求 招聘条件 能力要求 技术栈`;
     const ragContext = await retrieveContext(template.knowledgeBaseDir, ragQuery);
@@ -87,11 +81,10 @@ export async function generateReport(
 
     const uvxCommand = resolveUvxCommand();
     const fetchMCP = new MCPClient("mcp-server-fetch", uvxCommand, ['mcp-server-fetch']);
-    const fileMCP = new MCPClient("mcp-server-file", "npx", ['-y', '@modelcontextprotocol/server-filesystem', outPath]);
 
     const enableFetchMCP = config.tools.enableFetch;
     const canUseFetchMCP = enableFetchMCP && commandExists(uvxCommand);
-    const mcpClients = canUseFetchMCP ? [fetchMCP, fileMCP] : [fileMCP];
+    const mcpClients = canUseFetchMCP ? [fetchMCP] : [];
 
     const agent = new Agent(model, mcpClients, systemPrompt, context);
     let response = '';
@@ -102,8 +95,7 @@ export async function generateReport(
             .replace(/\{jobCategory\}/g, category)
             .replace(/\{jobTitle\}/g, jobTitle)
             .replace(/\{searchTarget\}/g, searchTarget)
-            .replace(/\{jobTypeLabel\}/g, jobTypeLabel)
-            .replace('{reportPath}', reportPath);
+            .replace(/\{jobTypeLabel\}/g, jobTypeLabel);
         response = await agent.invoke(userPrompt);
     } catch (e: any) {
         console.warn(`[LLM degraded] ${sanitizeErrorMessage(e)}`);
@@ -111,10 +103,6 @@ export async function generateReport(
         response = reportTemplate?.fallback(context, e, searchTarget) || buildGenericFallbackReport(context, e, searchTarget, category);
     } finally {
         await agent.close();
-    }
-
-    if (!fs.existsSync(reportPath) && response) {
-        fs.writeFileSync(reportPath, response, 'utf-8');
     }
 
     return response;
