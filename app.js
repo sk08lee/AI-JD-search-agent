@@ -32,21 +32,58 @@ document.addEventListener('DOMContentLoaded', () => {
         outputSection.scrollIntoView({ behavior: 'smooth' });
     }
 
-    function copyToClipboard() {
-        const text = outputContent.textContent;
-        if (!text) return;
+    function showCopySuccess() {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = '已复制!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+            copyBtn.textContent = originalText;
+            copyBtn.classList.remove('copied');
+        }, 2000);
+    }
 
-        navigator.clipboard.writeText(text).then(() => {
-            const originalText = copyBtn.textContent;
-            copyBtn.textContent = '已复制!';
-            copyBtn.classList.add('copied');
-            setTimeout(() => {
-                copyBtn.textContent = originalText;
-                copyBtn.classList.remove('copied');
-            }, 2000);
-        }).catch(err => {
-            console.error('Failed to copy:', err);
-        });
+    function fallbackCopyText(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, text.length);
+        const copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (!copied) {
+            throw new Error('execCommand copy failed');
+        }
+    }
+
+    async function copyToClipboard() {
+        const text = outputContent.textContent;
+        if (!text || !text.trim()) {
+            alert('暂无报告内容可复制，请先生成报告');
+            return;
+        }
+
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                fallbackCopyText(text);
+            }
+            showCopySuccess();
+        } catch (err) {
+            try {
+                fallbackCopyText(text);
+                showCopySuccess();
+            } catch (fallbackErr) {
+                console.error('Failed to copy:', err, fallbackErr);
+                alert('复制失败：当前浏览器在非 HTTPS 环境下可能限制剪贴板。请手动选中报告内容后复制。');
+            }
+        }
     }
 
     function generateMockReport(jobCategory, jobTitle) {
